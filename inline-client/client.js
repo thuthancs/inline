@@ -87,7 +87,6 @@ function renderResults(items) {
         const url = String(item?.url || "").trim();
         const type = normalizeType(item?.type);
 
-        // ✅ Add the type to the li itself (best for styling/filtering later)
         li.dataset.type = type;
 
         // Title/link
