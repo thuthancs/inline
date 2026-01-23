@@ -27,7 +27,10 @@ app.get("/", (_req, res) => {
 });
 
 // Notion SDK
-const notion = new Client({ auth: process.env.NOTION_KEY });
+const notion = new Client({
+    auth: process.env.NOTION_KEY,
+    notionVersion: "2025-09-03"
+});
 
 /* NOTION API ENDPOINTS 
     - Search pages, databases, and data sources
@@ -40,7 +43,22 @@ const notion = new Client({ auth: process.env.NOTION_KEY });
 app.post("/search", async (req, res) => {
     try {
         const query = String(req.body?.query).trim();
+
+        // Search for both pages and data_sources (default behavior)
+        // Note: Notion's search API excludes databases - they must be accessed differently
         const response = await notion.search({ query });
+
+        // Debug: log all returned objects
+        console.log("=== SEARCH DEBUG ===");
+        console.log("Query:", query);
+        console.log("Search returned:", response.results.length, "items");
+        response.results.forEach((item: any, index: number) => {
+            console.log(`[${index}] object: ${item.object}, id: ${item.id}`);
+            if (item.object === "data_source") {
+                console.log("  → Data source found:", item);
+            }
+        });
+        console.log("===================");
 
         const results = await Promise.all(
             response.results.map(async (item: any) => {
@@ -90,18 +108,168 @@ app.post("/search", async (req, res) => {
     }
 });
 
-// TODO: Create a child page in a parent page/datasource
+// List children (databases, pages, etc.) of a parent page
+app.get("/children/:pageId", async (req, res) => {
+    try {
+        const pageId = req.params.pageId;
+
+        console.log("=== CHILDREN DEBUG ===");
+        console.log("Fetching children for page:", pageId);
+
+        const response = await notion.blocks.children.list({
+            block_id: pageId,
+        });
+
+        console.log("Children returned:", response.results.length, "blocks");
+
+        // Filter for databases and pages
+        const children = response.results
+            .filter((block: any) => {
+                const type = block.type;
+                return type === "child_database" || type === "child_page";
+            })
+            .map((block: any) => {
+                if (block.type === "child_database") {
+                    // Child database blocks have title as a simple string
+                    const title = block.child_database?.title || "(Untitled)";
+                    return {
+                        id: block.id,
+                        type: "database",
+                        title: title,
+                        url: null,
+                    };
+                }
+                // Child page blocks also have title as a simple string
+                const title = block.child_page?.title || "(Untitled)";
+                return {
+                    id: block.id,
+                    type: "page",
+                    title: title,
+                    url: null,
+                };
+            });
+
+        console.log("Filtered children:", children);
+        console.log("===================");
+
+        return res.json(children);
+    } catch (e: any) {
+        console.error("Children fetch error:", e);
+        return res.status(500).json({
+            error: e?.message || "Failed to fetch children"
+        });
+    }
+});
+
+// Get a single data source with its properties
+app.get("/data-source/:dataSourceId", async (req, res) => {
+    try {
+        const dataSourceId = req.params.dataSourceId;
+
+        console.log("=== DATA SOURCE RETRIEVE DEBUG ===");
+        console.log("Fetching data source:", dataSourceId);
+
+        // Use the generic request method to call the data source endpoint
+        const dataSource: any = await notion.request({
+            method: 'get',
+            path: `data_sources/${dataSourceId}`,
+        });
+
+        console.log("Data source retrieved:", dataSource.name);
+        console.log("Properties:", Object.keys(dataSource.properties || {}).length);
+        console.log("===================");
+
+        return res.json(dataSource);
+    } catch (e: any) {
+        console.error("Data source retrieve error:", e);
+        return res.status(500).json({
+            error: e?.message || "Failed to retrieve data source"
+        });
+    }
+});
+
+// Get data sources for a database
+app.get("/data-sources/:databaseId", async (req, res) => {
+    try {
+        const databaseId = req.params.databaseId;
+
+        console.log("=== DATA SOURCES DEBUG ===");
+        console.log("Fetching data sources for database:", databaseId);
+
+        const database: any = await notion.databases.retrieve({
+            database_id: databaseId
+        });
+
+        console.log("Database retrieved:", database.title);
+        console.log("Data sources found:", database.data_sources?.length || 0);
+
+        const dataSources = (database.data_sources || []).map((ds: any) => ({
+            id: ds.id,
+            type: "data_source",
+            title: ds.name || "(Untitled data source)",
+            url: null,
+        }));
+
+        console.log("Data sources:", dataSources);
+        console.log("===================");
+
+        return res.json(dataSources);
+    } catch (e: any) {
+        console.error("Data sources fetch error:", e);
+        return res.status(500).json({
+            error: e?.message || "Failed to fetch data sources"
+        });
+    }
+});
+
+// Create a child page in a parent page/database/data_source
 app.post("/create-page", async (req, res) => {
     try {
         const parent_id = String(req.body?.parent_id ?? "").trim();
+        const parent_type = String(req.body?.parent_type ?? "page").trim(); // "page", "database", or "data_source"
         const title = String(req.body?.title ?? "").trim();
+        const custom_properties = req.body?.properties || {}; // Custom properties for data sources
 
         if (!parent_id) return res.status(400).json({ error: "parent_id is required" });
         if (!title) return res.status(400).json({ error: "title is required" });
 
-        const response = await notion.pages.create({
-            parent: { page_id: parent_id },
-            properties: {
+        let parent: any;
+        let properties: any;
+
+        if (parent_type === "data_source") {
+            // For data sources, use data_source_id as parent
+            parent = { data_source_id: parent_id };
+            // Use custom properties provided, or fallback to Name
+            properties = Object.keys(custom_properties).length > 0
+                ? custom_properties
+                : {
+                    Name: {
+                        title: [
+                            {
+                                type: "text",
+                                text: { content: title },
+                            },
+                        ],
+                    },
+                };
+        } else if (parent_type === "database") {
+            // For databases, use database_id as parent
+            parent = { database_id: parent_id };
+            // Database pages use "Name" property (or "title" in some cases)
+            properties = {
+                Name: {
+                    title: [
+                        {
+                            type: "text",
+                            text: { content: title },
+                        },
+                    ],
+                },
+            };
+        } else {
+            // For pages, use page_id as parent
+            parent = { page_id: parent_id };
+            properties = {
                 title: {
                     title: [
                         {
@@ -110,7 +278,12 @@ app.post("/create-page", async (req, res) => {
                         },
                     ],
                 },
-            },
+            };
+        }
+
+        const response = await notion.pages.create({
+            parent,
+            properties,
         });
         console.log(response)
         return res.json(response);
