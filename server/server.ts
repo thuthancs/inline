@@ -12,7 +12,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-const PORT = Number(process.env.PORT ?? 64707);
+const PORT = Number(process.env.PORT ?? 3000);
 
 // Middleware
 app.use(cors({ origin: "*" }));
@@ -49,6 +49,7 @@ app.post("/search", async (req, res) => {
                     console.log(page)
 
                     return {
+                        id: item.id,
                         type: "page",
                         title: getTitle(page),
                         url: (page as any).url,
@@ -57,6 +58,7 @@ app.post("/search", async (req, res) => {
 
                 if (item.object === "data_source") {
                     return {
+                        id: item.id,
                         type: "data_source",
                         title: getTitle(item),
                         url: item.url ?? null,
@@ -65,6 +67,7 @@ app.post("/search", async (req, res) => {
 
                 if (item.object === "database") {
                     return {
+                        id: item.id,
                         type: "database",
                         title: getTitle(item),
                         url: item.url ?? null,
@@ -90,53 +93,59 @@ app.post("/search", async (req, res) => {
 // TODO: Create a child page in a parent page/datasource
 app.post("/create-page", async (req, res) => {
     try {
-        const parent_id = String(req.body?.parent_id).trim();
-        const title = String(req.body?.title).trim();
+        const parent_id = String(req.body?.parent_id ?? "").trim();
+        const title = String(req.body?.title ?? "").trim();
+
+        if (!parent_id) return res.status(400).json({ error: "parent_id is required" });
+        if (!title) return res.status(400).json({ error: "title is required" });
+
         const response = await notion.pages.create({
-            parent: {
-                type: "page_id",
-                page_id: parent_id,
-            },
+            parent: { page_id: parent_id },
             properties: {
-                Name: {
+                title: {
                     title: [
                         {
                             type: "text",
-                            text: {
-                                content: title,
-                            }
-                        }
-                    ]
-                }
-            }
-        })
-
-        return res.json(response); // the response should containt the new page id
-    } catch (e) {
+                            text: { content: title },
+                        },
+                    ],
+                },
+            },
+        });
+        console.log(response)
+        return res.json(response);
+    } catch (e: any) {
         console.error(e);
-        res.status(500).json({ error: "Failed to create page" });
+        // bubble Notion message if present (helps debugging)
+        return res.status(e?.status || 500).json({
+            error: e?.message || "Failed to create page",
+        });
     }
-})
+});
+
 
 // TODO: Append a block to a page
 app.patch("/save", async (req, res) => {
     try {
-        const page_id = String(req.body?.page_id).trim();
-        const content = String(req.body?.content).trim();
+        const page_id = String(req.body?.page_id ?? "").trim();
+        const content = String(req.body?.content ?? "").trim();
+
+        if (!page_id) return res.status(400).json({ error: "Missing page_id" });
+        if (!content) return res.status(400).json({ error: "Missing content" });
+
+        console.log("[SAVE] page_id:", page_id, "content:", content.slice(0, 80));
 
         const response = await notion.blocks.children.append({
-            block_id: page_id,
+            block_id: page_id, // page id is valid as a block_id
             children: [
                 {
                     object: "block",
                     type: "paragraph",
                     paragraph: {
-                        text: [
+                        rich_text: [
                             {
                                 type: "text",
-                                text: {
-                                    content: content,
-                                },
+                                text: { content },
                             },
                         ],
                     },
@@ -144,11 +153,17 @@ app.patch("/save", async (req, res) => {
             ],
         });
 
+        console.log("[SAVE] appended:", response?.results?.[0]?.id);
         return res.json(response);
-    } catch (e) {
-
+    } catch (e: any) {
+        console.error("[SAVE] error:", e?.body ?? e);
+        return res.status(500).json({
+            error: e?.body?.message ?? e?.message ?? "Failed to save content",
+        });
     }
-})
+});
+
+
 
 // TODO: Add a comment to a block
 app.post("/comment", async (req, res) => {

@@ -1,0 +1,31 @@
+{
+    "manifest_version": 3,
+    "name": "Inline (Minimal)",
+    "version": "0.0.1",
+    "action": {
+        "default_popup": "src/popup/index.html"
+    },
+    "background": {
+        "service_worker": "sw.js",
+        "type": "module"
+    },
+    "permissions": [
+        "storage",
+        "activeTab",
+        "tabs"
+    ],
+    "host_permissions": [
+        "http://localhost:*/*",
+        "http://127.0.0.1:*/*"
+    ],
+    "content_scripts": [
+        {
+            "matches": [
+                "<all_urls>"
+            ],
+            "js": [
+                "content.js"
+            ]
+        }
+    ]
+}
