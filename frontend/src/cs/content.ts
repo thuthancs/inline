@@ -75,8 +75,7 @@ function showCommentBox() {
     commentBox = document.createElement("div");
     commentBox.className = "comment-box";
 
-    const input = document.createElement("input");
-    input.type = "text";
+    const input = document.createElement("textarea");
     input.placeholder = "Add your comment...";
     input.className = "comment-input";
 
@@ -205,10 +204,12 @@ function makeTooltip(x: number, y: number) {
             box-shadow: 0 4px 12px rgba(0,0,0,0.12);
             font-family: system-ui;
             font-size: 12px;
-            min-width: 200px;
+            min-width: 300px;
+            min-height: 120px;
         }
         .comment-input {
             width: 100%;
+            height: 80px;
             padding: 6px 8px;
             border: 1px solid #ddd;
             border-radius: 4px;
@@ -216,6 +217,7 @@ function makeTooltip(x: number, y: number) {
             font-family: system-ui;
             box-sizing: border-box;
             margin-bottom: 6px;
+            resize: vertical;
         }
         .comment-input:focus {
             outline: none;

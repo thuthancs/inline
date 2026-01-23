@@ -1,7 +1,11 @@
 {
     "manifest_version": 3,
-    "name": "Inline (Minimal)",
+    "name": "Inline",
     "version": "0.0.1",
+    "description": "Save highlights and add comments to text from any webpage to Notion",
+    "icons": {
+        "128": "icons/icon128.png"
+    },
     "action": {
         "default_popup": "src/popup/index.html"
     },
