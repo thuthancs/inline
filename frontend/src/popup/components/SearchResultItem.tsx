@@ -8,7 +8,15 @@ interface Props {
     onLoadChildren?: () => void;
     isLoadingDataSources?: boolean;
     onLoadDataSources?: () => void;
-    badgeColor?: string;
+}
+
+// Badge color based on item type: page=gray, database=blue, data_source=yellow
+function getBadgeColor(type: string): string {
+    switch (type) {
+        case "database": return "bg-blue-100";
+        case "data_source": return "bg-yellow-100";
+        default: return "bg-gray-100";
+    }
 }
 
 export function SearchResultItem({
@@ -19,7 +27,6 @@ export function SearchResultItem({
     onLoadChildren,
     isLoadingDataSources,
     onLoadDataSources,
-    badgeColor = "bg-gray-100",
 }: Props) {
     return (
         <div className={`border border-gray-300 rounded-lg mb-2 ${isSelected ? "bg-gray-100" : "bg-white"}`}>
@@ -29,13 +36,13 @@ export function SearchResultItem({
             >
                 <div className="flex items-center gap-2">
                     <div className="font-semibold flex-1">{item.title || "(Untitled)"}</div>
-                    <span className={`text-[10px] text-gray-500 px-1.5 py-0.5 ${badgeColor} rounded`}>
+                    <span className={`text-[10px] text-gray-500 px-1.5 py-0.5 ${getBadgeColor(item.type)} rounded`}>
                         {item.type}
                     </span>
                 </div>
             </div>
 
-            {item.type === "page" && onLoadChildren && (
+            {isSelected && item.type === "page" && onLoadChildren && (
                 <div className="px-2 pb-2">
                     <button
                         onClick={(e) => {
@@ -50,7 +57,7 @@ export function SearchResultItem({
                 </div>
             )}
 
-            {item.type === "database" && onLoadDataSources && (
+            {isSelected && item.type === "database" && onLoadDataSources && (
                 <div className="px-2 pb-2">
                     <button
                         onClick={(e) => {

@@ -21,7 +21,6 @@ export function DataSourcesList({ dataSources, selected, onSelect }: Props) {
                     item={ds}
                     isSelected={selected === ds}
                     onSelect={() => onSelect(ds)}
-                    badgeColor="bg-yellow-100"
                 />
             ))}
         </div>

@@ -11,10 +11,14 @@ export function useSearch() {
 
     // Children state
     const [children, setChildren] = useState<SearchItem[]>([]);
+    const [childrenForPage, setChildrenForPage] = useState<string | null>(null);
+    const [childrenExpanded, setChildrenExpanded] = useState(false);
     const [loadingChildrenFor, setLoadingChildrenFor] = useState<string | null>(null);
 
     // Data sources state
     const [dataSources, setDataSources] = useState<SearchItem[]>([]);
+    const [dataSourcesForDatabase, setDataSourcesForDatabase] = useState<string | null>(null);
+    const [dataSourcesExpanded, setDataSourcesExpanded] = useState(false);
     const [loadingDataSourcesFor, setLoadingDataSourcesFor] = useState<string | null>(null);
 
     const pageResults = useMemo(
@@ -30,7 +34,11 @@ export function useSearch() {
         setBusy(true);
         setSelected(null);
         setChildren([]);
+        setChildrenForPage(null);
+        setChildrenExpanded(false);
         setDataSources([]);
+        setDataSourcesForDatabase(null);
+        setDataSourcesExpanded(false);
 
         try {
             const data = await apiSearch(q);
@@ -43,14 +51,29 @@ export function useSearch() {
         }
     }, [query]);
 
-    const loadChildren = useCallback(async (pageId: string) => {
+    const toggleChildren = useCallback(async (pageId: string) => {
+        // If already loaded for this page, just toggle visibility
+        if (childrenForPage === pageId && children.length > 0) {
+            setChildrenExpanded(prev => !prev);
+            // When collapsing children, also collapse data sources
+            if (childrenExpanded) {
+                setDataSourcesExpanded(false);
+            }
+            return;
+        }
+
+        // Load children
         setLoadingChildrenFor(pageId);
         setStatus("Loading children...");
         setDataSources([]);
+        setDataSourcesForDatabase(null);
+        setDataSourcesExpanded(false);
 
         try {
             const data = await apiGetChildren(pageId);
             setChildren(data);
+            setChildrenForPage(pageId);
+            setChildrenExpanded(true);
             if (data.length === 0) {
                 setStatus("No child databases found in this page.");
             } else {
@@ -59,18 +82,29 @@ export function useSearch() {
         } catch (e: any) {
             setStatus(`Load children failed: ${e?.message || "unknown"}`);
             setChildren([]);
+            setChildrenForPage(null);
+            setChildrenExpanded(false);
         } finally {
             setLoadingChildrenFor(null);
         }
-    }, []);
+    }, [childrenForPage, children.length, childrenExpanded]);
 
-    const loadDataSources = useCallback(async (databaseId: string) => {
+    const toggleDataSources = useCallback(async (databaseId: string) => {
+        // If already loaded for this database, just toggle visibility
+        if (dataSourcesForDatabase === databaseId && dataSources.length > 0) {
+            setDataSourcesExpanded(prev => !prev);
+            return;
+        }
+
+        // Load data sources
         setLoadingDataSourcesFor(databaseId);
         setStatus("Loading data sources...");
 
         try {
             const data = await apiGetDataSources(databaseId);
             setDataSources(data);
+            setDataSourcesForDatabase(databaseId);
+            setDataSourcesExpanded(true);
             if (data.length === 0) {
                 setStatus("No data sources found in this database.");
             } else {
@@ -79,16 +113,22 @@ export function useSearch() {
         } catch (e: any) {
             setStatus(`Load data sources failed: ${e?.message || "unknown"}`);
             setDataSources([]);
+            setDataSourcesForDatabase(null);
+            setDataSourcesExpanded(false);
         } finally {
             setLoadingDataSourcesFor(null);
         }
-    }, []);
+    }, [dataSourcesForDatabase, dataSources.length]);
 
     const clearResults = useCallback(() => {
         setResults([]);
         setSelected(null);
         setChildren([]);
+        setChildrenForPage(null);
+        setChildrenExpanded(false);
         setDataSources([]);
+        setDataSourcesForDatabase(null);
+        setDataSourcesExpanded(false);
         setQuery("");
     }, []);
 
@@ -104,14 +144,17 @@ export function useSearch() {
         status,
         setStatus,
         children,
+        childrenExpanded,
         loadingChildrenFor,
         dataSources,
+        dataSourcesForDatabase,
+        dataSourcesExpanded,
         loadingDataSourcesFor,
 
         // Actions
         search,
-        loadChildren,
-        loadDataSources,
+        toggleChildren,
+        toggleDataSources,
         clearResults,
     };
 }

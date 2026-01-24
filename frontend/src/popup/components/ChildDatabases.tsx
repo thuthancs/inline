@@ -29,7 +29,6 @@ export function ChildDatabases({
                     item={c}
                     isSelected={selected === c}
                     onSelect={() => onSelect(c)}
-                    badgeColor="bg-blue-100"
                     isLoadingDataSources={loadingDataSourcesFor === c.id}
                     onLoadDataSources={c.type === "database" ? () => onLoadDataSources(c.id) : undefined}
                 />

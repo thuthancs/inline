@@ -8,8 +8,6 @@ import { useDestination } from "./hooks/useDestination";
 import { useSearch } from "./hooks/useSearch";
 
 // Components
-import { ChildDatabases } from "./components/ChildDatabases";
-import { DataSourcesList } from "./components/DataSourcesList";
 import { DestinationCard } from "./components/DestinationCard";
 import { PropertyForm } from "./components/PropertyForm";
 import { SearchBar } from "./components/SearchBar";
@@ -29,12 +27,15 @@ export default function App() {
     status,
     setStatus,
     children,
+    childrenExpanded,
     loadingChildrenFor,
     dataSources,
+    dataSourcesForDatabase,
+    dataSourcesExpanded,
     loadingDataSourcesFor,
     search,
-    loadChildren,
-    loadDataSources,
+    toggleChildren,
+    toggleDataSources,
     clearResults,
   } = useSearch();
 
@@ -213,7 +214,7 @@ export default function App() {
         busy={busy}
       />
 
-      {/* Selected Item - show only the selected card */}
+      {/* Selected Item - show hierarchical structure */}
       {selected && (
         <div className="mt-2.5">
           <div className="flex justify-between items-center mb-2">
@@ -225,20 +226,121 @@ export default function App() {
               Change
             </button>
           </div>
-          <SearchResultItem
-            key={selected.id}
-            item={selected}
-            isSelected={true}
-            onSelect={() => { }}
-            isLoadingChildren={loadingChildrenFor === selected.id}
-            onLoadChildren={selected.type === "page" ? () => loadChildren(selected.id) : undefined}
-            isLoadingDataSources={loadingDataSourcesFor === selected.id}
-            onLoadDataSources={selected.type === "database" ? () => loadDataSources(selected.id) : undefined}
-            badgeColor={
-              children.includes(selected) ? "bg-blue-100" :
-                dataSources.includes(selected) ? "bg-yellow-100" : "bg-gray-100"
-            }
-          />
+
+          {/* Hierarchical tree structure with toggles */}
+          <div className="border border-gray-200 rounded-lg overflow-hidden">
+            {/* Level 0: Selected Page/Database/DataSource */}
+            <div
+              className={`p-2.5 ${selected.type === "data_source" ? "bg-yellow-50" : selected.type === "database" ? "bg-blue-50" : "bg-gray-50"}`}
+            >
+              <div className="flex items-center gap-2">
+                <div className="font-semibold flex-1">{selected.title || "(Untitled)"}</div>
+                <span className={`text-[10px] text-gray-500 px-1.5 py-0.5 rounded ${selected.type === "data_source" ? "bg-yellow-100" : selected.type === "database" ? "bg-blue-100" : "bg-gray-100"}`}>
+                  {selected.type}
+                </span>
+              </div>
+
+              {/* Toggle for child databases */}
+              {selected.type === "page" && (
+                <div
+                  onClick={() => toggleChildren(selected.id)}
+                  className="mt-2 flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer hover:text-gray-900"
+                >
+                  <span className={`transition-transform ${childrenExpanded ? "rotate-90" : ""}`}>▶</span>
+                  <span>{loadingChildrenFor === selected.id ? "Loading..." : "Databases"}</span>
+                  {children.length > 0 && <span className="text-gray-400">({children.length})</span>}
+                </div>
+              )}
+
+              {/* Toggle for data sources (when selected is a database) */}
+              {selected.type === "database" && (
+                <div
+                  onClick={() => toggleDataSources(selected.id)}
+                  className="mt-2 flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer hover:text-gray-900"
+                >
+                  <span className={`transition-transform ${dataSourcesExpanded ? "rotate-90" : ""}`}>▶</span>
+                  <span>{loadingDataSourcesFor === selected.id ? "Loading..." : "Data sources"}</span>
+                  {dataSources.length > 0 && <span className="text-gray-400">({dataSources.length})</span>}
+                </div>
+              )}
+            </div>
+
+            {/* Level 1: Child Databases (nested under page) */}
+            {childrenExpanded && children.length > 0 && (
+              <div className="border-t border-gray-200 bg-white">
+                {children.map((child, idx) => (
+                  <div key={`child-${child.id}-${idx}`} className="border-b border-gray-100 last:border-b-0">
+                    <div
+                      className={`p-2 pl-5 cursor-pointer hover:bg-gray-50 ${selected.id === child.id ? "bg-blue-50" : ""}`}
+                      onClick={() => setSelected(child)}
+                    >
+                      <div className="flex items-center gap-2">
+                        <div className="font-medium flex-1 text-sm">{child.title || "(Untitled)"}</div>
+                        <span className="text-[10px] text-gray-500 px-1.5 py-0.5 bg-blue-100 rounded">
+                          {child.type}
+                        </span>
+                      </div>
+
+                      {/* Toggle for data sources */}
+                      {child.type === "database" && (
+                        <div
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleDataSources(child.id);
+                          }}
+                          className="mt-1.5 flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer hover:text-gray-700"
+                        >
+                          <span className={`transition-transform ${dataSourcesForDatabase === child.id && dataSourcesExpanded ? "rotate-90" : ""}`}>▶</span>
+                          <span>{loadingDataSourcesFor === child.id ? "Loading..." : "Data sources"}</span>
+                          {dataSourcesForDatabase === child.id && dataSources.length > 0 && <span className="text-gray-400">({dataSources.length})</span>}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Level 2: Data Sources (nested under this database) */}
+                    {dataSourcesForDatabase === child.id && dataSourcesExpanded && dataSources.length > 0 && (
+                      <div className="bg-gray-50">
+                        {dataSources.map((ds, dsIdx) => (
+                          <div
+                            key={`ds-${ds.id}-${dsIdx}`}
+                            className={`p-2 pl-10 cursor-pointer hover:bg-gray-100 border-t border-gray-100 ${selected.id === ds.id ? "bg-yellow-100" : ""}`}
+                            onClick={() => setSelected(ds)}
+                          >
+                            <div className="flex items-center gap-2">
+                              <div className="font-medium flex-1 text-sm">{ds.title || "(Untitled)"}</div>
+                              <span className="text-[10px] text-gray-500 px-1.5 py-0.5 bg-yellow-100 rounded">
+                                {ds.type}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Data Sources directly under selected database (when selected is a database) */}
+            {selected.type === "database" && dataSourcesForDatabase === selected.id && dataSourcesExpanded && dataSources.length > 0 && (
+              <div className="border-t border-gray-200 bg-gray-50">
+                {dataSources.map((ds, dsIdx) => (
+                  <div
+                    key={`ds-direct-${ds.id}-${dsIdx}`}
+                    className={`p-2 pl-5 cursor-pointer hover:bg-gray-100 border-b border-gray-100 last:border-b-0 ${selected.id === ds.id ? "bg-yellow-100" : ""}`}
+                    onClick={() => setSelected(ds)}
+                  >
+                    <div className="flex items-center gap-2">
+                      <div className="font-medium flex-1 text-sm">{ds.title || "(Untitled)"}</div>
+                      <span className="text-[10px] text-gray-500 px-1.5 py-0.5 bg-yellow-100 rounded">
+                        {ds.type}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       )}
 
@@ -252,30 +354,10 @@ export default function App() {
               isSelected={false}
               onSelect={() => setSelected(r)}
               isLoadingChildren={loadingChildrenFor === r.id}
-              onLoadChildren={r.type === "page" ? () => loadChildren(r.id) : undefined}
+              onLoadChildren={r.type === "page" ? () => toggleChildren(r.id) : undefined}
             />
           ))}
         </div>
-      )}
-
-      {/* Children - only show if nothing selected */}
-      {!selected && (
-        <ChildDatabases
-          children={children}
-          selected={null}
-          onSelect={setSelected}
-          loadingDataSourcesFor={loadingDataSourcesFor}
-          onLoadDataSources={loadDataSources}
-        />
-      )}
-
-      {/* Data Sources - only show if nothing selected */}
-      {!selected && (
-        <DataSourcesList
-          dataSources={dataSources}
-          selected={null}
-          onSelect={setSelected}
-        />
       )}
 
       {showPropertyForm && (
