@@ -7,26 +7,28 @@ interface Props {
 
 export function DestinationCard({ destination, onClear }: Props) {
     return (
-        <div style={{ border: "1px solid #eee", padding: 8, borderRadius: 8, marginBottom: 10 }}>
-            <div style={{ fontSize: 12, color: "#666" }}>Current destination</div>
+        <div className="border border-gray-200 p-2 rounded-lg mb-2.5">
+            <div className="text-xs text-gray-500">Current destination</div>
             {!destination ? (
-                <div style={{ marginTop: 6, color: "#666" }}>None</div>
+                <div className="mt-1.5 text-gray-500">None</div>
             ) : destination.mode === "append_to_selected" ? (
-                <div style={{ marginTop: 6 }}>
-                    <div><b>Direct:</b> {destination.pageTitle || destination.pageId}</div>
+                <div className="mt-1.5">
+                    <div><b>Direct:</b> {destination.pageTitle || "(Untitled)"}</div>
                 </div>
             ) : (
-                <div style={{ marginTop: 6 }}>
-                    <div><b>Parent:</b> {destination.parentTitle || destination.parentPageId}</div>
-                    <div><b>Child:</b> {destination.childTitle || destination.childPageId}</div>
+                <div className="mt-1.5">
+                    <div><b>Parent:</b> {destination.parentTitle || "(Untitled)"}</div>
+                    <div><b>Child:</b> {destination.childTitle || "(Untitled)"}</div>
                 </div>
             )}
             {destination && (
-                <button onClick={onClear} style={{ marginTop: 8 }}>
+                <button
+                    onClick={onClear}
+                    className="mt-2 px-2 py-1 text-xs bg-gray-100 border border-gray-300 rounded hover:bg-gray-200"
+                >
                     Clear
                 </button>
             )}
         </div>
     );
 }
-

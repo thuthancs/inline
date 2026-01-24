@@ -1,4 +1,60 @@
-import type { SWMessage } from "../types";
+// Inline the destination key to avoid ES module imports (content scripts don't support modules)
+const DEST_KEY = "inline_destination_v1";
+
+type SWMessage =
+    | {
+        type: "SAVE_HIGHLIGHT";
+        payload: {
+            text: string;
+            pageUrl: string;
+            pageTitle?: string;
+            images?: string[];
+        };
+    }
+    | {
+        type: "SAVE_IMAGE";
+        payload: {
+            imageUrl: string;
+            pageUrl: string;
+            pageTitle?: string;
+        };
+    }
+    | {
+        type: "COMMENT_HIGHLIGHT";
+        payload: {
+            text: string;
+            comment: string;
+            pageUrl: string;
+            pageTitle?: string;
+        };
+    };
+
+// Track if destination is set (controls whether UI shows)
+let hasDestination = false;
+
+// Load and check destination from storage
+async function checkDestination() {
+    try {
+        const store = await chrome.storage.local.get(DEST_KEY);
+        hasDestination = !!store[DEST_KEY];
+    } catch {
+        hasDestination = false;
+    }
+}
+
+// Listen for storage changes (when destination is set or cleared)
+chrome.storage.onChanged.addListener((changes, areaName) => {
+    if (areaName === 'local' && changes[DEST_KEY]) {
+        hasDestination = !!changes[DEST_KEY].newValue;
+        // If destination was cleared, remove any visible tooltip
+        if (!hasDestination) {
+            removeTooltip();
+        }
+    }
+});
+
+// Check destination on script load
+checkDestination();
 
 // Check if extension context is still valid
 function isExtensionContextValid(): boolean {
@@ -73,6 +129,9 @@ let overlayHover = false;
 
 // Add hover listeners to all images on the page
 function initImageHoverHandlers() {
+    // Only add handlers if a destination is set
+    if (!hasDestination) return;
+
     document.querySelectorAll('img').forEach(img => {
         // Skip if already has handler
         if (img.hasAttribute('data-inline-handled')) return;
@@ -575,6 +634,9 @@ function makeTooltip(x: number, y: number) {
 }
 
 document.addEventListener("mouseup", (e) => {
+    // Only show UI if a destination is set
+    if (!hasDestination) return;
+
     if (shadowHost && e.target instanceof Node && shadowHost.contains(e.target)) return;
 
     const text = getSelectionText();

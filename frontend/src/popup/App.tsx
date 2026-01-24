@@ -200,7 +200,7 @@ export default function App() {
   }
 
   return (
-    <div style={{ width: "100%", maxWidth: 400, padding: 12, fontFamily: "system-ui" }}>
+    <div className="w-full max-w-md p-3 font-sans">
       <DestinationCard
         destination={destination}
         onClear={handleClearDestination}
@@ -215,12 +215,12 @@ export default function App() {
 
       {/* Selected Item - show only the selected card */}
       {selected && (
-        <div style={{ marginTop: 10 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-            <span style={{ fontSize: 12, color: "#666" }}>Selected destination:</span>
+        <div className="mt-2.5">
+          <div className="flex justify-between items-center mb-2">
+            <span className="text-xs text-gray-500">Selected destination:</span>
             <button
               onClick={() => setSelected(null)}
-              style={{ fontSize: 11, padding: "2px 8px", cursor: "pointer" }}
+              className="text-xs px-2 py-0.5 cursor-pointer bg-gray-100 border border-gray-300 rounded hover:bg-gray-200"
             >
               Change
             </button>
@@ -235,8 +235,8 @@ export default function App() {
             isLoadingDataSources={loadingDataSourcesFor === selected.id}
             onLoadDataSources={selected.type === "database" ? () => loadDataSources(selected.id) : undefined}
             badgeColor={
-              children.includes(selected) ? "#e3f2fd" :
-                dataSources.includes(selected) ? "#fff3cd" : "#f0f0f0"
+              children.includes(selected) ? "bg-blue-100" :
+                dataSources.includes(selected) ? "bg-yellow-100" : "bg-gray-100"
             }
           />
         </div>
@@ -244,7 +244,7 @@ export default function App() {
 
       {/* Search Results - only show if nothing selected */}
       {!selected && results.length > 0 && (
-        <div style={{ marginTop: 10 }}>
+        <div className="mt-2.5">
           {results.map((r, idx) => (
             <SearchResultItem
               key={`${r.id}-${idx}`}
@@ -289,14 +289,22 @@ export default function App() {
         />
       )}
 
-      {/* Action Buttons - only show when an item is selected */}
-      {selected && (
-        <div style={{ borderTop: "1px solid #eee", paddingTop: 10, marginTop: 10 }}>
-          <div style={{ display: "flex", gap: 8 }}>
-            <button onClick={handleSaveDirect} disabled={busy}>
+      {/* Action Buttons - only show when an item is selected and property form is not shown */}
+      {selected && !showPropertyForm && (
+        <div className="border-t border-gray-200 pt-2.5 mt-2.5">
+          <div className="flex gap-2">
+            <button
+              onClick={handleSaveDirect}
+              disabled={busy}
+              className="px-3 py-1.5 bg-green-600 text-white text-sm rounded hover:bg-green-700 disabled:opacity-50"
+            >
               Save directly
             </button>
-            <button onClick={handleCreateChild} disabled={busy}>
+            <button
+              onClick={handleCreateChild}
+              disabled={busy}
+              className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 disabled:opacity-50"
+            >
               Create child page
             </button>
           </div>
@@ -304,7 +312,7 @@ export default function App() {
       )}
 
       {/* Status */}
-      {status && <div style={{ marginTop: 10, fontSize: 12, color: "#444" }}>{status}</div>}
+      {status && <div className="mt-2.5 text-xs text-gray-600">{status}</div>}
     </div>
   );
 }

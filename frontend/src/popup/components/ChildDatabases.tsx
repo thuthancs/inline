@@ -19,8 +19,8 @@ export function ChildDatabases({
     if (children.length === 0) return null;
 
     return (
-        <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid #eee" }}>
-            <div style={{ fontSize: 12, color: "#666", marginBottom: 8 }}>
+        <div className="mt-2.5 pt-2.5 border-t border-gray-200">
+            <div className="text-xs text-gray-500 mb-2">
                 Child databases:
             </div>
             {children.map((c, idx) => (
@@ -29,7 +29,7 @@ export function ChildDatabases({
                     item={c}
                     isSelected={selected === c}
                     onSelect={() => onSelect(c)}
-                    badgeColor="#e3f2fd"
+                    badgeColor="bg-blue-100"
                     isLoadingDataSources={loadingDataSourcesFor === c.id}
                     onLoadDataSources={c.type === "database" ? () => onLoadDataSources(c.id) : undefined}
                 />
@@ -37,4 +37,3 @@ export function ChildDatabases({
         </div>
     );
 }
-

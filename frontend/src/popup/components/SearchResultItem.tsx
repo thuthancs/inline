@@ -19,56 +19,31 @@ export function SearchResultItem({
     onLoadChildren,
     isLoadingDataSources,
     onLoadDataSources,
-    badgeColor = "#f0f0f0",
+    badgeColor = "bg-gray-100",
 }: Props) {
     return (
-        <div
-            style={{
-                border: "1px solid #ddd",
-                borderRadius: 8,
-                marginBottom: 8,
-                background: isSelected ? "#f5f5f5" : "white",
-            }}
-        >
+        <div className={`border border-gray-300 rounded-lg mb-2 ${isSelected ? "bg-gray-100" : "bg-white"}`}>
             <div
                 onClick={onSelect}
-                style={{
-                    padding: 8,
-                    cursor: "pointer",
-                }}
+                className="p-2 cursor-pointer"
             >
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <div style={{ fontWeight: 600, flex: 1 }}>{item.title || "(Untitled)"}</div>
-                    <span style={{
-                        fontSize: 10,
-                        color: "#999",
-                        padding: "2px 6px",
-                        background: badgeColor,
-                        borderRadius: 4
-                    }}>
+                <div className="flex items-center gap-2">
+                    <div className="font-semibold flex-1">{item.title || "(Untitled)"}</div>
+                    <span className={`text-[10px] text-gray-500 px-1.5 py-0.5 ${badgeColor} rounded`}>
                         {item.type}
                     </span>
                 </div>
-                {item.url && <div style={{ fontSize: 12, color: "#666" }}>{item.url}</div>}
             </div>
 
             {item.type === "page" && onLoadChildren && (
-                <div style={{ padding: "0 8px 8px 8px" }}>
+                <div className="px-2 pb-2">
                     <button
                         onClick={(e) => {
                             e.stopPropagation();
                             onLoadChildren();
                         }}
                         disabled={isLoadingChildren}
-                        style={{
-                            fontSize: 11,
-                            padding: "4px 8px",
-                            width: "100%",
-                            background: "#f9f9f9",
-                            border: "1px solid #ddd",
-                            borderRadius: 4,
-                            cursor: "pointer",
-                        }}
+                        className="text-xs px-2 py-1 w-full bg-gray-50 border border-gray-300 rounded cursor-pointer hover:bg-gray-100 disabled:opacity-50"
                     >
                         {isLoadingChildren ? "Loading..." : "View child databases"}
                     </button>
@@ -76,22 +51,14 @@ export function SearchResultItem({
             )}
 
             {item.type === "database" && onLoadDataSources && (
-                <div style={{ padding: "0 8px 8px 8px" }}>
+                <div className="px-2 pb-2">
                     <button
                         onClick={(e) => {
                             e.stopPropagation();
                             onLoadDataSources();
                         }}
                         disabled={isLoadingDataSources}
-                        style={{
-                            fontSize: 11,
-                            padding: "4px 8px",
-                            width: "100%",
-                            background: "#f9f9f9",
-                            border: "1px solid #ddd",
-                            borderRadius: 4,
-                            cursor: "pointer",
-                        }}
+                        className="text-xs px-2 py-1 w-full bg-gray-50 border border-gray-300 rounded cursor-pointer hover:bg-gray-100 disabled:opacity-50"
                     >
                         {isLoadingDataSources ? "Loading..." : "View data sources"}
                     </button>
@@ -100,4 +67,3 @@ export function SearchResultItem({
         </div>
     );
 }
-

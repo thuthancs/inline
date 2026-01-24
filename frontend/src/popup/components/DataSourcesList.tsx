@@ -11,8 +11,8 @@ export function DataSourcesList({ dataSources, selected, onSelect }: Props) {
     if (dataSources.length === 0) return null;
 
     return (
-        <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid #eee" }}>
-            <div style={{ fontSize: 12, color: "#666", marginBottom: 8 }}>
+        <div className="mt-2.5 pt-2.5 border-t border-gray-200">
+            <div className="text-xs text-gray-500 mb-2">
                 Data sources:
             </div>
             {dataSources.map((ds, idx) => (
@@ -21,10 +21,9 @@ export function DataSourcesList({ dataSources, selected, onSelect }: Props) {
                     item={ds}
                     isSelected={selected === ds}
                     onSelect={() => onSelect(ds)}
-                    badgeColor="#fff3cd"
+                    badgeColor="bg-yellow-100"
                 />
             ))}
         </div>
     );
 }
-

@@ -18,27 +18,21 @@ export function PropertyForm({
     if (!schema) return null;
 
     return (
-        <div style={{
-            marginTop: 10,
-            padding: 10,
-            border: "2px solid #0066cc",
-            borderRadius: 8,
-            background: "#f9f9f9"
-        }}>
-            <div style={{ fontWeight: 600, marginBottom: 8 }}>
+        <div className="mt-2.5 p-2.5 border-2 border-blue-600 rounded-lg bg-gray-50">
+            <div className="font-semibold mb-2">
                 Fill in properties for: {schema.name || "(Untitled)"}
             </div>
-            <div style={{ fontSize: 11, color: "#666", marginBottom: 10 }}>
+            <div className="text-xs text-gray-500 mb-2.5">
                 Properties in this data source:
             </div>
 
             {Object.entries(schema.properties || {}).map(([propName, propSchema]: [string, any]) => (
-                <div key={propName} style={{ marginBottom: 8 }}>
-                    <div style={{ fontSize: 11, fontWeight: 500, marginBottom: 4 }}>
-                        {propName} ({propSchema.type})
+                <div key={propName} className="mb-2">
+                    <div className="text-xs font-medium mb-1">
+                        {propName} ({(propSchema as any).type})
                     </div>
 
-                    {propSchema.type === "rich_text" && (
+                    {(propSchema as any).type === "rich_text" && (
                         <input
                             type="text"
                             placeholder={`Enter ${propName}`}
@@ -51,19 +45,13 @@ export function PropertyForm({
                                     }
                                 });
                             }}
-                            style={{
-                                width: "100%",
-                                padding: "4px 6px",
-                                fontSize: 11,
-                                border: "1px solid #ddd",
-                                borderRadius: 4,
-                                boxSizing: "border-box",
-                            }}
+                            className="w-full px-1.5 py-1 text-xs border border-gray-300 rounded box-border"
                         />
                     )}
 
-                    {propSchema.type === "select" && (
+                    {(propSchema as any).type === "select" && (
                         <select
+                            aria-label={propName}
                             value={values[propName]?.select?.name || ""}
                             onChange={(e) => {
                                 onValuesChange({
@@ -71,22 +59,16 @@ export function PropertyForm({
                                     [propName]: e.target.value ? { select: { name: e.target.value } } : undefined
                                 });
                             }}
-                            style={{
-                                width: "100%",
-                                padding: "4px 6px",
-                                fontSize: 11,
-                                border: "1px solid #ddd",
-                                borderRadius: 4
-                            }}
+                            className="w-full px-1.5 py-1 text-xs border border-gray-300 rounded"
                         >
                             <option value="">Select {propName}</option>
-                            {propSchema.select?.options?.map((opt: any) => (
+                            {(propSchema as any).select?.options?.map((opt: any) => (
                                 <option key={opt.name} value={opt.name}>{opt.name}</option>
                             ))}
                         </select>
                     )}
 
-                    {propSchema.type === "url" && (
+                    {(propSchema as any).type === "url" && (
                         <input
                             type="url"
                             placeholder={`Enter ${propName}`}
@@ -97,59 +79,36 @@ export function PropertyForm({
                                     [propName]: { url: e.target.value || null }
                                 });
                             }}
-                            style={{
-                                width: "100%",
-                                padding: "4px 6px",
-                                fontSize: 11,
-                                border: "1px solid #ddd",
-                                borderRadius: 4,
-                                boxSizing: "border-box",
-                            }}
+                            className="w-full px-1.5 py-1 text-xs border border-gray-300 rounded box-border"
                         />
                     )}
 
-                    {propSchema.type === "title" && (
-                        <div style={{ fontSize: 10, color: "#999", fontStyle: "italic" }}>
+                    {(propSchema as any).type === "title" && (
+                        <div className="text-[10px] text-gray-400 italic">
                             (Will be set to page title automatically)
                         </div>
                     )}
 
-                    {!["rich_text", "select", "title", "url"].includes(propSchema.type) && (
-                        <div style={{ fontSize: 10, color: "#999", fontStyle: "italic" }}>
-                            {propSchema.type} (not yet supported in form)
+                    {!["rich_text", "select", "title", "url"].includes((propSchema as any).type) && (
+                        <div className="text-[10px] text-gray-400 italic">
+                            {(propSchema as any).type} (not yet supported in form)
                         </div>
                     )}
                 </div>
             ))}
 
-            <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+            <div className="flex gap-2 mt-2.5">
                 <button
                     onClick={onSubmit}
                     disabled={busy}
-                    style={{
-                        flex: 1,
-                        padding: "6px 12px",
-                        background: "#0066cc",
-                        color: "white",
-                        border: "none",
-                        borderRadius: 4,
-                        cursor: "pointer",
-                        fontSize: 12
-                    }}
+                    className="flex-1 px-3 py-1.5 bg-blue-600 text-white border-none rounded cursor-pointer text-xs hover:bg-blue-700 disabled:opacity-50"
                 >
                     Create Page
                 </button>
                 <button
                     onClick={onCancel}
                     disabled={busy}
-                    style={{
-                        padding: "6px 12px",
-                        background: "white",
-                        border: "1px solid #ddd",
-                        borderRadius: 4,
-                        cursor: "pointer",
-                        fontSize: 12
-                    }}
+                    className="px-3 py-1.5 bg-white border border-gray-300 rounded cursor-pointer text-xs hover:bg-gray-50 disabled:opacity-50"
                 >
                     Cancel
                 </button>
@@ -157,4 +116,3 @@ export function PropertyForm({
         </div>
     );
 }
-
