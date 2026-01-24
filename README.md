@@ -1,6 +1,16 @@
 <div align="center">
   <img src="https://github.com/user-attachments/assets/feae16ca-ffc4-4666-950a-ead7e49cc1e4" width="600" alt="image_icon">
 </div>
+<br />
+<p align="center">
+  <a href="#demo">Demo</a> &nbsp;•&nbsp;
+  <a href="#why-inline">Why inline?</a> &nbsp;•&nbsp;
+  <a href="#ux-flow">UX Flow</a> &nbsp;•&nbsp;
+  <a href="#architecture">Architecture</a> &nbsp;•&nbsp;
+  <a href="#roadmap">Roadmap</a>
+</p>
+
+
 
 # Demo
 <p align="center">
@@ -12,6 +22,15 @@ As someone who reads online most of the time, I find the **current reading flow 
 When I read, I want to engage AND save information so that I can revisit it later. 
 Now, all of my data lives in Notion, and whenever I read a research paper or something that requires serious attention, I need to open a split view, copy from one tab, paste it into Notion, and open another tab, like Claude or ChatGPT, to ask follow-up questions. 
 I was thinking about how I can automate this process so that my online reading experience is more seamless while ensuring the right information is saved to my knowledge base. And this is why **inline** was born :)
+
+# UX Flow
+
+# Architecture
+
+# Roadmap
+- [ ] Add a cache feature to show the latest destinations so users don't have to search all over again
+- [ ] Add Gemini API for an "Ask" mode where users can ask questions about specific text directly in-tab without switching
+
 
 
 
