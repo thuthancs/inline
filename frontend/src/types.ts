@@ -32,6 +32,15 @@ export type SWMessage =
             text: string;
             pageUrl: string;
             pageTitle?: string;
+            images?: string[];
+        };
+    }
+    | {
+        type: "SAVE_IMAGE";
+        payload: {
+            imageUrl: string;
+            pageUrl: string;
+            pageTitle?: string;
         };
     }
     | {

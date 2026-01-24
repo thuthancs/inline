@@ -32,6 +32,102 @@ const notion = new Client({
     notionVersion: "2025-09-03"
 });
 
+async function fetchImageAsBuffer(imageUrl: string) {
+    console.log("[UPLOAD] Fetching image:", imageUrl);
+    const resp = await fetch(imageUrl);
+    if (!resp.ok) {
+        throw new Error(`Failed to fetch image: ${resp.status} ${resp.statusText}`);
+    }
+    const contentType = resp.headers.get("content-type") || "image/jpeg";
+    const arrayBuffer = await resp.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+
+    const urlPath = new URL(imageUrl).pathname;
+    const baseName = urlPath.split("/").pop() || "image";
+    const extFromType = contentType.split("/")[1] || "jpg";
+    const fileName = baseName.includes(".") ? baseName : `${baseName}.${extFromType}`;
+
+    console.log("[UPLOAD] Fetched:", { fileName, contentType, size: buffer.length });
+    return { buffer, contentType, fileName };
+}
+
+async function uploadImageToNotion(imageUrl: string) {
+    const { buffer, contentType, fileName } = await fetchImageAsBuffer(imageUrl);
+
+    console.log("[UPLOAD] Creating file upload:", { fileName, contentType, size: buffer.length });
+    const createUpload: any = await notion.request({
+        method: "post",
+        path: "file_uploads",
+        body: {
+            file_name: fileName,
+            content_type: contentType,
+            file_size: buffer.length,
+        },
+    });
+
+    const uploadUrl = createUpload.upload_url;
+    const uploadId = createUpload.id;
+
+    console.log("[UPLOAD] Create response:", {
+        id: uploadId,
+        has_upload_url: !!uploadUrl,
+        full_response: JSON.stringify(createUpload, null, 2)
+    });
+
+    if (!uploadUrl || !uploadId) {
+        throw new Error("Notion file upload did not return upload_url or id");
+    }
+
+    console.log("[UPLOAD] Uploading bytes to:", uploadUrl);
+
+    // Use multipart/form-data with 'file' field
+    const blob = new Blob([buffer], { type: contentType });
+    const formData = new FormData();
+    formData.append('file', blob, fileName);
+    console.log("[UPLOAD] FormData created with file:", fileName, "size:", buffer.length);
+
+    const uploadResp = await fetch(uploadUrl, {
+        method: "POST",
+        headers: {
+            "Authorization": `Bearer ${process.env.NOTION_KEY}`,
+            "Notion-Version": "2025-09-03",
+        },
+        body: formData,
+    });
+
+    console.log("[UPLOAD] POST response:", uploadResp.status, uploadResp.statusText);
+
+    if (!uploadResp.ok) {
+        const errorBody = await uploadResp.text();
+        console.error("[UPLOAD] POST error body:", errorBody);
+        throw new Error(`Upload failed: ${uploadResp.status} ${uploadResp.statusText} - ${errorBody}`);
+    }
+
+    // Parse /send response to check status
+    const sendResponse = await uploadResp.json();
+    const isAlreadyUploaded = sendResponse?.status === "uploaded";
+
+    // For simple uploads (≤20 MiB), /send auto-completes - skip /complete
+    if (isAlreadyUploaded) {
+        return { uploadId, type: "file_upload" };
+    }
+
+    // For multi-part uploads, call /complete
+    console.log("[UPLOAD] Completing upload:", uploadId);
+    const completed: any = await notion.request({
+        method: "post",
+        path: `file_uploads/${uploadId}/complete`,
+    });
+
+    console.log("[UPLOAD] Complete response:", {
+        has_file: !!completed?.file,
+        file_url: completed?.file?.url,
+        expiry_time: completed?.file?.expiry_time,
+    });
+
+    return { uploadId, type: "file_upload" };
+}
+
 /* NOTION API ENDPOINTS 
     - Search pages, databases, and data sources
     - Create a child page in a parent page
@@ -297,36 +393,81 @@ app.post("/create-page", async (req, res) => {
 });
 
 
-// TODO: Append a block to a page
+// Append content (text + images) to a page
 app.patch("/save", async (req, res) => {
     try {
         const page_id = String(req.body?.page_id ?? "").trim();
         const content = String(req.body?.content ?? "").trim();
+        const images = Array.isArray(req.body?.images) ? req.body.images : [];
 
         if (!page_id) return res.status(400).json({ error: "Missing page_id" });
-        if (!content) return res.status(400).json({ error: "Missing content" });
+        if (!content && images.length === 0) {
+            return res.status(400).json({ error: "Missing content or images" });
+        }
 
         console.log("[SAVE] page_id:", page_id, "content:", content.slice(0, 80));
+        console.log("[SAVE] images:", images.length);
+
+        // Build blocks array: text paragraph + image blocks
+        const blocks: any[] = [];
+
+        if (content) {
+            blocks.push({
+                object: "block",
+                type: "paragraph",
+                paragraph: {
+                    rich_text: [
+                        {
+                            type: "text",
+                            text: { content },
+                        },
+                    ],
+                },
+            });
+        }
+
+        // Add image blocks (upload bytes to Notion)
+        for (const imageUrl of images) {
+            try {
+                console.log("[SAVE] Processing image:", imageUrl);
+                const uploadResult = await uploadImageToNotion(imageUrl);
+
+                if (!uploadResult?.uploadId) {
+                    throw new Error("Upload complete but uploadId missing");
+                }
+
+                console.log("[SAVE] ✓ Image uploaded successfully, adding file_upload block");
+
+                // Use type: "file_upload" with the upload ID (per Notion docs)
+                blocks.push({
+                    object: "block",
+                    type: "image",
+                    image: {
+                        type: "file_upload",
+                        file_upload: {
+                            id: uploadResult.uploadId,
+                        },
+                    },
+                });
+            } catch (err) {
+                console.error("[SAVE] ✗ Image upload failed, falling back to external:", imageUrl, err);
+                blocks.push({
+                    object: "block",
+                    type: "image",
+                    image: {
+                        type: "external",
+                        external: { url: imageUrl },
+                    },
+                });
+            }
+        }
 
         const response = await notion.blocks.children.append({
             block_id: page_id, // page id is valid as a block_id
-            children: [
-                {
-                    object: "block",
-                    type: "paragraph",
-                    paragraph: {
-                        rich_text: [
-                            {
-                                type: "text",
-                                text: { content },
-                            },
-                        ],
-                    },
-                },
-            ],
+            children: blocks,
         });
 
-        console.log("[SAVE] appended:", response?.results?.[0]?.id);
+        console.log("[SAVE] appended:", response?.results?.length, "blocks");
         return res.json(response);
     } catch (e: any) {
         console.error("[SAVE] error:", e?.body ?? e);

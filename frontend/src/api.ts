@@ -36,11 +36,11 @@ export async function apiCreatePage(
     return await res.json(); // Notion page object (contains id, url, etc.)
 }
 
-export async function apiSave(page_id: string, content: string): Promise<any> {
+export async function apiSave(page_id: string, content: string, images?: string[]): Promise<any> {
     const res = await fetch(`${API_BASE}/save`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ page_id, content }),
+        body: JSON.stringify({ page_id, content, images }),
     });
     if (!res.ok) throw new Error(await readError(res));
     return await res.json(); // append response, includes results (blocks)

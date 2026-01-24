@@ -30,9 +30,17 @@ chrome.runtime.onMessage.addListener((msg: SWMessage, _sender, sendResponse) => 
 
         if (msg.type === "SAVE_HIGHLIGHT") {
             console.log("Saving highlight to", targetPageId);
+            console.log("Including images:", msg.payload.images?.length || 0);
 
-            const resp = await apiSave(targetPageId, msg.payload.text);
+            const resp = await apiSave(targetPageId, msg.payload.text, msg.payload.images);
 
+            sendResponse({ ok: true, response: resp });
+            return;
+        }
+
+        if (msg.type === "SAVE_IMAGE") {
+            console.log("Saving image to", targetPageId);
+            const resp = await apiSave(targetPageId, "", [msg.payload.imageUrl]);
             sendResponse({ ok: true, response: resp });
             return;
         }

@@ -5,12 +5,180 @@ let tooltip: HTMLDivElement | null = null;
 let commentBox: HTMLDivElement | null = null;
 let lastSelectionText = "";
 let savedRange: Range | null = null; // Store the range for later use
+let imageOverlay: HTMLButtonElement | null = null;
+let activeImage: HTMLImageElement | null = null;
+let overlayHover = false;
+
+// Add hover listeners to all images on the page
+function initImageHoverHandlers() {
+    document.querySelectorAll('img').forEach(img => {
+        // Skip if already has handler
+        if (img.hasAttribute('data-inline-handled')) return;
+
+        img.setAttribute('data-inline-handled', 'true');
+
+        img.addEventListener('mouseenter', () => {
+            if (!isValidImage(img)) return;
+            showImageOverlay(img);
+        });
+
+        img.addEventListener('mouseleave', () => {
+            setTimeout(() => {
+                if (!overlayHover) hideImageOverlay();
+            }, 100);
+        });
+    });
+}
+
+// Show a toast notification
+function showToast(message: string, type: 'success' | 'info' | 'error' = 'info') {
+    const toast = document.createElement('div');
+    toast.textContent = message;
+    toast.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        padding: 12px 20px;
+        background: ${type === 'success' ? '#4caf50' : type === 'error' ? '#f44336' : '#2196f3'};
+        color: white;
+        border-radius: 4px;
+        font-family: system-ui;
+        font-size: 14px;
+        z-index: 10000;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        animation: slideIn 0.3s ease-out;
+    `;
+
+    document.body.appendChild(toast);
+
+    setTimeout(() => {
+        toast.style.animation = 'slideOut 0.3s ease-out';
+        setTimeout(() => toast.remove(), 300);
+    }, 2000);
+}
+
+// Add CSS animations to the page
+const styleSheet = document.createElement('style');
+styleSheet.textContent = `
+    @keyframes slideIn {
+        from {
+            transform: translateX(100%);
+            opacity: 0;
+        }
+        to {
+            transform: translateX(0);
+            opacity: 1;
+        }
+    }
+    @keyframes slideOut {
+        from {
+            transform: translateX(0);
+            opacity: 1;
+        }
+        to {
+            transform: translateX(100%);
+            opacity: 0;
+        }
+    }
+`;
+document.head.appendChild(styleSheet);
+
+// Initialize on page load and when new content is added
+initImageHoverHandlers();
+const observer = new MutationObserver(() => initImageHoverHandlers());
+observer.observe(document.body, { childList: true, subtree: true });
 
 function removeTooltip() {
     if (shadowHost) shadowHost.remove();
     shadowHost = null;
     tooltip = null;
     commentBox = null;
+}
+
+function isValidImage(img: HTMLImageElement): boolean {
+    const src = img.currentSrc || img.src;
+    if (!src || src.startsWith('data:') || !src.startsWith('http')) return false;
+    return img.width >= 100 && img.height >= 100;
+}
+
+function ensureImageOverlay() {
+    if (imageOverlay) return;
+
+    imageOverlay = document.createElement('button');
+    imageOverlay.textContent = 'Save image';
+    imageOverlay.style.cssText = `
+        position: fixed;
+        padding: 6px 10px;
+        background: #0066cc;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        font-size: 12px;
+        font-family: system-ui;
+        cursor: pointer;
+        z-index: 10000;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        display: none;
+    `;
+
+    imageOverlay.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        if (!activeImage) return;
+        const src = activeImage.currentSrc || activeImage.src;
+        if (!src) return;
+
+        const msg: SWMessage = {
+            type: "SAVE_IMAGE",
+            payload: {
+                imageUrl: src,
+                pageUrl: location.href,
+                pageTitle: document.title,
+            },
+        };
+
+        chrome.runtime.sendMessage(msg, (resp) => {
+            if (chrome.runtime.lastError) {
+                showToast(`Save failed: ${chrome.runtime.lastError.message}`, 'error');
+                return;
+            }
+            if (resp?.ok) {
+                showToast('Image saved to Notion', 'success');
+            } else {
+                showToast(`Save failed: ${resp?.error || 'unknown'}`, 'error');
+            }
+        });
+    });
+
+    imageOverlay.addEventListener('mouseenter', () => {
+        overlayHover = true;
+    });
+
+    imageOverlay.addEventListener('mouseleave', () => {
+        overlayHover = false;
+        hideImageOverlay();
+    });
+
+    document.body.appendChild(imageOverlay);
+}
+
+function showImageOverlay(img: HTMLImageElement) {
+    ensureImageOverlay();
+    if (!imageOverlay) return;
+
+    activeImage = img;
+    const rect = img.getBoundingClientRect();
+
+    imageOverlay.style.left = `${Math.min(rect.right - 90, window.innerWidth - 110)}px`;
+    imageOverlay.style.top = `${Math.max(rect.top + 6, 8)}px`;
+    imageOverlay.style.display = 'block';
+}
+
+function hideImageOverlay() {
+    if (!imageOverlay) return;
+    imageOverlay.style.display = 'none';
+    activeImage = null;
 }
 
 function getSelectionText(): string {
