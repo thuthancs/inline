@@ -4,6 +4,13 @@ import { DEST_KEY } from "../types";
 
 console.log("Service worker loaded");
 
+// Open side panel when clicking the extension icon
+chrome.action.onClicked.addListener((tab) => {
+    if (tab.id) {
+        chrome.sidePanel.open({ tabId: tab.id });
+    }
+});
+
 chrome.runtime.onMessage.addListener((msg: SWMessage, _sender, sendResponse) => {
     (async () => {
         console.log("SW received:", msg);

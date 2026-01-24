@@ -248,7 +248,7 @@ export default function App() {
   }
 
   return (
-    <div style={{ width: 360, padding: 12, fontFamily: "system-ui" }}>
+    <div style={{ width: "100%", maxWidth: 400, padding: 12, fontFamily: "system-ui" }}>
       <div style={{ fontWeight: 700, marginBottom: 8 }}>Inline (Minimal)</div>
 
       <div style={{ border: "1px solid #eee", padding: 8, borderRadius: 8, marginBottom: 10 }}>

@@ -7,7 +7,10 @@
         "128": "icons/icon128.png"
     },
     "action": {
-        "default_popup": "src/popup/index.html"
+        "default_title": "Open Inline"
+    },
+    "side_panel": {
+        "default_path": "src/popup/index.html"
     },
     "background": {
         "service_worker": "sw.js",
@@ -16,7 +19,8 @@
     "permissions": [
         "storage",
         "activeTab",
-        "tabs"
+        "tabs",
+        "sidePanel"
     ],
     "host_permissions": [
         "http://localhost:*/*",
