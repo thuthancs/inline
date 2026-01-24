@@ -6,8 +6,18 @@ const router = Router();
 // Add a comment to a block
 router.post("/", async (req, res) => {
     try {
-        const block_id = String(req.body?.block_id).trim();
-        const comment_text = String(req.body?.comment_text).trim();
+        const block_id = String(req.body?.block_id ?? "").trim();
+        const comment_text = String(req.body?.comment_text ?? "").trim();
+
+        console.log("[COMMENT] Creating comment on block:", block_id);
+        console.log("[COMMENT] Comment text:", comment_text.slice(0, 50));
+
+        if (!block_id) {
+            return res.status(400).json({ error: "block_id is required" });
+        }
+        if (!comment_text) {
+            return res.status(400).json({ error: "comment_text is required" });
+        }
 
         const response = await notion.comments.create({
             parent: {
@@ -24,10 +34,13 @@ router.post("/", async (req, res) => {
             ],
         });
 
+        console.log("[COMMENT] ✓ Comment created successfully");
         return res.json(response);
-    } catch (e) {
-        console.error(e);
-        res.status(500).json({ error: "Failed to add comment" });
+    } catch (e: any) {
+        console.error("[COMMENT] ✗ Error:", e?.body ?? e?.message ?? e);
+        return res.status(e?.status || 500).json({
+            error: e?.body?.message ?? e?.message ?? "Failed to add comment"
+        });
     }
 });
 

@@ -14,16 +14,40 @@ async function storageRemove(key: string): Promise<void> {
     await chrome.storage.local.remove(key);
 }
 
+async function getCurrentTabUrl(): Promise<string | null> {
+    try {
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        return tab?.url || null;
+    } catch {
+        return null;
+    }
+}
+
 export function useDestination() {
     const [destination, setDestination] = useState<Destination | null>(null);
 
+    // Load destination and check if URL matches (only on initial load/reload)
     useEffect(() => {
-        storageGet<Destination>(DEST_KEY).then(setDestination);
+        (async () => {
+            const currentUrl = await getCurrentTabUrl();
+            const stored = await storageGet<Destination>(DEST_KEY);
+
+            // Clear destination if URL doesn't match (page was reloaded on different URL)
+            if (stored && stored.sourceUrl !== currentUrl) {
+                await storageRemove(DEST_KEY);
+                setDestination(null);
+            } else {
+                setDestination(stored);
+            }
+        })();
     }, []);
 
     const save = useCallback(async (d: Destination) => {
-        await storageSet(DEST_KEY, d);
-        setDestination(d);
+        // Add source URL to destination
+        const currentUrl = await getCurrentTabUrl();
+        const destWithUrl = { ...d, sourceUrl: currentUrl || undefined };
+        await storageSet(DEST_KEY, destWithUrl);
+        setDestination(destWithUrl);
     }, []);
 
     const clear = useCallback(async () => {
@@ -33,4 +57,3 @@ export function useDestination() {
 
     return { destination, save, clear };
 }
-

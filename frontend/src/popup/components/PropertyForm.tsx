@@ -86,13 +86,35 @@ export function PropertyForm({
                         </select>
                     )}
 
+                    {propSchema.type === "url" && (
+                        <input
+                            type="url"
+                            placeholder={`Enter ${propName}`}
+                            value={values[propName]?.url || ""}
+                            onChange={(e) => {
+                                onValuesChange({
+                                    ...values,
+                                    [propName]: { url: e.target.value || null }
+                                });
+                            }}
+                            style={{
+                                width: "100%",
+                                padding: "4px 6px",
+                                fontSize: 11,
+                                border: "1px solid #ddd",
+                                borderRadius: 4,
+                                boxSizing: "border-box",
+                            }}
+                        />
+                    )}
+
                     {propSchema.type === "title" && (
                         <div style={{ fontSize: 10, color: "#999", fontStyle: "italic" }}>
                             (Will be set to page title automatically)
                         </div>
                     )}
 
-                    {!["rich_text", "select", "title"].includes(propSchema.type) && (
+                    {!["rich_text", "select", "title", "url"].includes(propSchema.type) && (
                         <div style={{ fontSize: 10, color: "#999", fontStyle: "italic" }}>
                             {propSchema.type} (not yet supported in form)
                         </div>

@@ -12,6 +12,7 @@ export type Destination =
         pageTitle?: string;
         pageUrl?: string;
         setAt: number;
+        sourceUrl?: string; // The webpage URL where this destination was set
     }
     | {
         mode: "append_to_child";
@@ -21,6 +22,7 @@ export type Destination =
         childTitle?: string;
         childUrl?: string;
         setAt: number;
+        sourceUrl?: string; // The webpage URL where this destination was set
     };
 
 export const DEST_KEY = "inline_destination_v1";

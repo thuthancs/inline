@@ -1,5 +1,67 @@
 import type { SWMessage } from "../types";
 
+// Check if extension context is still valid
+function isExtensionContextValid(): boolean {
+    try {
+        // This will throw if context is invalidated
+        return !!chrome.runtime?.id;
+    } catch {
+        return false;
+    }
+}
+
+// Helper to send messages to service worker with retry logic
+// This handles the case where the SW is sleeping and needs to wake up
+function sendMessageWithRetry(
+    msg: SWMessage,
+    callback: (response: any) => void,
+    retries = 2
+) {
+    // Check if extension context is still valid before attempting to send
+    if (!isExtensionContextValid()) {
+        console.error('[CONTENT] Extension context invalidated - page reload required');
+        // Return a special error that indicates reload is needed
+        callback({ ok: false, error: "EXTENSION_RELOADED" });
+        return;
+    }
+
+    console.log(`[CONTENT] Sending message (retries left: ${retries}):`, msg.type);
+
+    try {
+        chrome.runtime.sendMessage(msg, (resp) => {
+            // Check for errors that indicate SW connection issues
+            if (chrome.runtime.lastError) {
+                const errorMsg = chrome.runtime.lastError.message || "";
+                console.warn(`[CONTENT] sendMessage error: ${errorMsg}`);
+
+                // Check for extension context invalidation errors
+                if (errorMsg.includes("Extension context invalidated") ||
+                    errorMsg.includes("Receiving end does not exist")) {
+                    // Extension was updated - no point retrying
+                    callback({ ok: false, error: "EXTENSION_RELOADED" });
+                    return;
+                }
+
+                // If we have retries left and it's a transient connection error, retry
+                if (retries > 0 && errorMsg.includes("disconnected")) {
+                    console.log(`[CONTENT] Retrying in 500ms...`);
+                    setTimeout(() => {
+                        sendMessageWithRetry(msg, callback, retries - 1);
+                    }, 500);
+                    return;
+                }
+            }
+
+            // Call the original callback with whatever we got
+            callback(resp);
+        });
+    } catch (e: any) {
+        console.error('[CONTENT] sendMessage threw:', e);
+        // If sendMessage itself throws, context is likely invalidated
+        callback({ ok: false, error: "EXTENSION_RELOADED" });
+    }
+}
+
 let shadowHost: HTMLDivElement | null = null;
 let tooltip: HTMLDivElement | null = null;
 let commentBox: HTMLDivElement | null = null;
@@ -138,7 +200,7 @@ function ensureImageOverlay() {
             },
         };
 
-        chrome.runtime.sendMessage(msg, (resp) => {
+        sendMessageWithRetry(msg, (resp) => {
             if (chrome.runtime.lastError) {
                 showToast(`Save failed: ${chrome.runtime.lastError.message}`, 'error');
                 return;
@@ -275,21 +337,36 @@ function showCommentBox() {
                 },
             };
 
-            chrome.runtime.sendMessage(msg, (resp) => {
+            // OPTIMISTIC UI: Close immediately, process in background
+            // Highlight was already applied when clicking "Add Comment"
+            showToast('Saving comment...', 'success');
+            removeTooltip();
+            window.getSelection()?.removeAllRanges();
+            savedRange = null;
+
+            // Process in background - show error only if it fails
+            sendMessageWithRetry(msg, (resp) => {
                 if (chrome.runtime.lastError) {
                     console.error("sendMessage failed:", chrome.runtime.lastError.message);
+                    showToast(`Save failed: ${chrome.runtime.lastError.message}`, 'error');
                     return;
                 }
-                console.log("SW response:", resp);
 
-                // IMPORTANT: Highlight BEFORE clearing selection
-                // The savedRange will be used in highlightSelectedText
-                highlightSelectedText("#b3e5fc"); // Light blue for comments
+                if (!resp?.ok) {
+                    let errorMsg: string;
+                    if (resp?.error === "NO_DESTINATION") {
+                        errorMsg = "No destination set. Open the side panel to set one.";
+                    } else if (resp?.error === "EXTENSION_RELOADED") {
+                        errorMsg = "Extension was updated. Please reload this page.";
+                    } else {
+                        errorMsg = `Save failed: ${resp?.error || 'unknown'}`;
+                    }
+                    showToast(errorMsg, 'error');
+                    return;
+                }
 
-                removeTooltip();
-                // Clear selection AFTER highlighting
-                window.getSelection()?.removeAllRanges();
-                savedRange = null;
+                // Update toast to confirm success
+                showToast('Saved with comment ✓', 'success');
             });
         }
     });
@@ -431,7 +508,6 @@ function makeTooltip(x: number, y: number) {
         e.stopPropagation();
 
         console.log("🔵 CONTENT: Save button clicked");
-        console.log("🔵 CONTENT: Selected text:", lastSelectionText);
 
         const msg: SWMessage = {
             type: "SAVE_HIGHLIGHT",
@@ -442,25 +518,36 @@ function makeTooltip(x: number, y: number) {
             },
         };
 
-        console.log("🔵 CONTENT: Sending message to SW:", msg);
+        // OPTIMISTIC UI: Show success immediately, highlight, and close
+        highlightSelectedText("#fff59d"); // Light yellow for saves
+        showToast('Saving to Notion...', 'success');
+        removeTooltip();
+        window.getSelection()?.removeAllRanges();
+        savedRange = null;
 
-        chrome.runtime.sendMessage(msg, (resp) => {
-            console.log("🔵 CONTENT: Got response from SW:", resp);
-
+        // Process in background - show error only if it fails
+        sendMessageWithRetry(msg, (resp) => {
             if (chrome.runtime.lastError) {
                 console.error("🔴 CONTENT: sendMessage failed:", chrome.runtime.lastError.message);
+                showToast(`Save failed: ${chrome.runtime.lastError.message}`, 'error');
                 return;
             }
 
-            console.log("🔵 CONTENT: Success, highlighting and removing tooltip");
+            if (!resp?.ok) {
+                let errorMsg: string;
+                if (resp?.error === "NO_DESTINATION") {
+                    errorMsg = "No destination set. Open the side panel to set one.";
+                } else if (resp?.error === "EXTENSION_RELOADED") {
+                    errorMsg = "Extension was updated. Please reload this page.";
+                } else {
+                    errorMsg = `Save failed: ${resp?.error || 'unknown'}`;
+                }
+                showToast(errorMsg, 'error');
+                return;
+            }
 
-            // IMPORTANT: Highlight BEFORE clearing selection
-            highlightSelectedText("#fff59d"); // Light yellow for saves
-
-            removeTooltip();
-            // Clear selection AFTER highlighting
-            window.getSelection()?.removeAllRanges();
-            savedRange = null;
+            // Update toast to confirm success
+            showToast('Saved to Notion ✓', 'success');
         });
     });
 
@@ -476,6 +563,8 @@ function makeTooltip(x: number, y: number) {
     commentBtn.addEventListener("click", (e) => {
         e.preventDefault();
         e.stopPropagation();
+        // Highlight immediately when user clicks "Add Comment"
+        highlightSelectedText("#b3e5fc"); // Light blue for comments
         showCommentBox();
     });
 

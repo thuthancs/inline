@@ -84,6 +84,14 @@ export function useSearch() {
         }
     }, []);
 
+    const clearResults = useCallback(() => {
+        setResults([]);
+        setSelected(null);
+        setChildren([]);
+        setDataSources([]);
+        setQuery("");
+    }, []);
+
     return {
         // State
         query,
@@ -104,6 +112,7 @@ export function useSearch() {
         search,
         loadChildren,
         loadDataSources,
+        clearResults,
     };
 }
 

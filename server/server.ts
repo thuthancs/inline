@@ -10,6 +10,7 @@ import commentRouter from "./routes/comment.js";
 import dataSourcesRouter from "./routes/dataSources.js";
 import pagesRouter from "./routes/pages.js";
 import saveRouter from "./routes/save.js";
+import saveWithCommentRouter from "./routes/saveWithComment.js";
 import searchRouter from "./routes/search.js";
 
 config();
@@ -38,6 +39,7 @@ app.use("/children", childrenRouter);
 app.use("/", dataSourcesRouter);  // Handles /data-source/:id and /data-sources/:id
 app.use("/create-page", pagesRouter);
 app.use("/save", saveRouter);
+app.use("/save-with-comment", saveWithCommentRouter);
 app.use("/comment", commentRouter);
 
 app.listen(PORT, () => {

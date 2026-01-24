@@ -35,6 +35,7 @@ export default function App() {
     search,
     loadChildren,
     loadDataSources,
+    clearResults,
   } = useSearch();
 
   // Property form state
@@ -60,6 +61,7 @@ export default function App() {
     };
 
     await saveDestination(d);
+    clearResults();
     setStatus("Destination saved: direct append.");
   }
 
@@ -80,6 +82,17 @@ export default function App() {
       try {
         const dataSource = await apiGetDataSource(parentPageId);
         setDataSourceSchema(dataSource);
+
+        // Auto-fill URL property with current page URL
+        const tab = await getActiveTabInfo();
+        const initialValues: { [key: string]: any } = {};
+        for (const [propName, propSchema] of Object.entries(dataSource.properties || {})) {
+          if ((propSchema as any).type === "url" && tab.url) {
+            initialValues[propName] = { url: tab.url };
+          }
+        }
+        setPropertyValues(initialValues);
+
         setShowPropertyForm(true);
         setStatus("");
       } catch (e: any) {
@@ -114,6 +127,7 @@ export default function App() {
       };
 
       await saveDestination(d);
+      clearResults();
       setStatus("Destination saved: child page created.");
     } catch (e: any) {
       setStatus(`Create child page failed: ${e?.message || "unknown"}`);
@@ -162,6 +176,7 @@ export default function App() {
       };
 
       await saveDestination(d);
+      clearResults();
       setStatus("Destination saved: page created with properties.");
       setShowPropertyForm(false);
       setDataSourceSchema(null);
@@ -186,8 +201,6 @@ export default function App() {
 
   return (
     <div style={{ width: "100%", maxWidth: 400, padding: 12, fontFamily: "system-ui" }}>
-      <div style={{ fontWeight: 700, marginBottom: 8 }}>Inline</div>
-
       <DestinationCard
         destination={destination}
         onClear={handleClearDestination}
@@ -200,33 +213,70 @@ export default function App() {
         busy={busy}
       />
 
-      {/* Search Results */}
-      <div style={{ marginTop: 10 }}>
-        {results.map((r, idx) => (
+      {/* Selected Item - show only the selected card */}
+      {selected && (
+        <div style={{ marginTop: 10 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+            <span style={{ fontSize: 12, color: "#666" }}>Selected destination:</span>
+            <button
+              onClick={() => setSelected(null)}
+              style={{ fontSize: 11, padding: "2px 8px", cursor: "pointer" }}
+            >
+              Change
+            </button>
+          </div>
           <SearchResultItem
-            key={`${r.id}-${idx}`}
-            item={r}
-            isSelected={selected === r}
-            onSelect={() => setSelected(r)}
-            isLoadingChildren={loadingChildrenFor === r.id}
-            onLoadChildren={r.type === "page" ? () => loadChildren(r.id) : undefined}
+            key={selected.id}
+            item={selected}
+            isSelected={true}
+            onSelect={() => { }}
+            isLoadingChildren={loadingChildrenFor === selected.id}
+            onLoadChildren={selected.type === "page" ? () => loadChildren(selected.id) : undefined}
+            isLoadingDataSources={loadingDataSourcesFor === selected.id}
+            onLoadDataSources={selected.type === "database" ? () => loadDataSources(selected.id) : undefined}
+            badgeColor={
+              children.includes(selected) ? "#e3f2fd" :
+                dataSources.includes(selected) ? "#fff3cd" : "#f0f0f0"
+            }
           />
-        ))}
-      </div>
+        </div>
+      )}
 
-      <ChildDatabases
-        children={children}
-        selected={selected}
-        onSelect={setSelected}
-        loadingDataSourcesFor={loadingDataSourcesFor}
-        onLoadDataSources={loadDataSources}
-      />
+      {/* Search Results - only show if nothing selected */}
+      {!selected && results.length > 0 && (
+        <div style={{ marginTop: 10 }}>
+          {results.map((r, idx) => (
+            <SearchResultItem
+              key={`${r.id}-${idx}`}
+              item={r}
+              isSelected={false}
+              onSelect={() => setSelected(r)}
+              isLoadingChildren={loadingChildrenFor === r.id}
+              onLoadChildren={r.type === "page" ? () => loadChildren(r.id) : undefined}
+            />
+          ))}
+        </div>
+      )}
 
-      <DataSourcesList
-        dataSources={dataSources}
-        selected={selected}
-        onSelect={setSelected}
-      />
+      {/* Children - only show if nothing selected */}
+      {!selected && (
+        <ChildDatabases
+          children={children}
+          selected={null}
+          onSelect={setSelected}
+          loadingDataSourcesFor={loadingDataSourcesFor}
+          onLoadDataSources={loadDataSources}
+        />
+      )}
+
+      {/* Data Sources - only show if nothing selected */}
+      {!selected && (
+        <DataSourcesList
+          dataSources={dataSources}
+          selected={null}
+          onSelect={setSelected}
+        />
+      )}
 
       {showPropertyForm && (
         <PropertyForm
@@ -239,18 +289,19 @@ export default function App() {
         />
       )}
 
-      {/* Action Buttons */}
-      <div style={{ borderTop: "1px solid #eee", paddingTop: 10, marginTop: 10 }}>
-        <div style={{ fontSize: 12, color: "#666" }}>After selecting a destination:</div>
-        <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-          <button onClick={handleSaveDirect} disabled={!selected || busy}>
-            Save directly
-          </button>
-          <button onClick={handleCreateChild} disabled={!selected || busy}>
-            Create child page
-          </button>
+      {/* Action Buttons - only show when an item is selected */}
+      {selected && (
+        <div style={{ borderTop: "1px solid #eee", paddingTop: 10, marginTop: 10 }}>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={handleSaveDirect} disabled={busy}>
+              Save directly
+            </button>
+            <button onClick={handleCreateChild} disabled={busy}>
+              Create child page
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Status */}
       {status && <div style={{ marginTop: 10, fontSize: 12, color: "#444" }}>{status}</div>}
