@@ -17,6 +17,7 @@ pnpm-debug.log*
 
 # Editor
 .vscode/
+.cursor/
 
 # Chrome extension artifacts
 *.crx
