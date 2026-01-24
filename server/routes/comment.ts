@@ -21,6 +21,7 @@ router.post("/", async (req, res) => {
 
         const response = await notion.comments.create({
             parent: {
+                // @ts-expect-error - Notion SDK types don't properly support block_id parent
                 type: "block_id",
                 block_id: block_id,
             },

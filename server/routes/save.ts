@@ -19,14 +19,14 @@ router.patch("/", async (req, res) => {
         console.log("[SAVE] page_id:", page_id, "content:", content.slice(0, 80));
         console.log("[SAVE] images:", images.length);
 
-        // Build blocks array: text paragraph + image blocks
+        // Build blocks array: text quote + image blocks
         const blocks: any[] = [];
 
         if (content) {
             blocks.push({
                 object: "block",
-                type: "paragraph",
-                paragraph: {
+                type: "quote",
+                quote: {
                     rich_text: [
                         {
                             type: "text",

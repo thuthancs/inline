@@ -18,14 +18,14 @@ router.post("/", async (req, res) => {
         console.log("[SAVE+COMMENT] content:", content.slice(0, 50));
         console.log("[SAVE+COMMENT] comment:", comment_text.slice(0, 50));
 
-        // Step 1: Append the text block
+        // Step 1: Append the text block as a quote
         const appendResponse = await notion.blocks.children.append({
             block_id: page_id,
             children: [
                 {
                     object: "block",
-                    type: "paragraph",
-                    paragraph: {
+                    type: "quote",
+                    quote: {
                         rich_text: [
                             {
                                 type: "text",
@@ -45,9 +45,9 @@ router.post("/", async (req, res) => {
         console.log("[SAVE+COMMENT] ✓ Text saved, block ID:", blockId);
 
         // Step 2: Add comment to the block
-        // @ts-expect-error - Notion SDK types don't properly support block_id parent
         await notion.comments.create({
             parent: {
+                // @ts-expect-error - Notion SDK types don't properly support block_id parent
                 type: "block_id",
                 block_id: blockId,
             },

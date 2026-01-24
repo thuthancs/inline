@@ -8,4 +8,5 @@ export function getTitle(item: any): string {
     } else if (item.object === "database" || item.object === "data_source") {
         return (item.title).map((t: any) => t.plain_text).join("") || "(Untitled)";
     }
+    return "(Untitled)";
 }
