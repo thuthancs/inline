@@ -27,9 +27,11 @@ I was thinking about how I can automate this process so that my online reading e
 
 # Architecture
 
-# Roadmap
+# Under Development
 - [ ] Add a cache feature to show the latest destinations so users don't have to search all over again
-- [ ] Add Gemini API for an "Ask" mode where users can ask questions about specific text directly in-tab without switching
+- [ ] Add Gemini API for an "Ask" mode where users can ask questions about specific text directly in the tab without switching
+- [ ] Add voice mode for adding comment
+
 
 
 
