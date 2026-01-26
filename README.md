@@ -155,9 +155,215 @@ npm run dev
 Note: After making changes to the frontend, you'll need to rebuild (`npm run build`) and reload the extension in Chrome for changes to take effect.
 
 
-# UX Flow
-
 # Architecture
+
+## Overview
+
+Inline is a Chrome extension that enables seamless saving of web content to Notion. The architecture consists of three main components:
+
+1. **Chrome Extension (Frontend)** - React-based UI and content scripts that interact with web pages
+2. **Express.js Server (Backend)** - API server that handles Notion API interactions
+3. **Notion API** - External service for reading and writing data
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Chrome Browser                            │
+│  ┌──────────────────────────────────────────────────────┐  │
+│  │  Content Script (content.ts)                         │  │
+│  │  - Detects text selection                            │  │
+│  │  - Shows tooltip with Save/Comment buttons           │  │
+│  │  - Handles PDF pages with special logic              │  │
+│  └──────────────┬───────────────────────────────────────┘  │
+│                 │ chrome.runtime.sendMessage                 │
+│  ┌──────────────▼───────────────────────────────────────┐  │
+│  │  Service Worker (sw.ts)                               │  │
+│  │  - Message routing                                    │  │
+│  │  - API calls to backend                               │  │
+│  │  - Storage management                                  │  │
+│  └──────────────┬───────────────────────────────────────┘  │
+│                 │ HTTP requests                              │
+│  ┌──────────────▼───────────────────────────────────────┐  │
+│  │  Side Panel (popup/App.tsx)                           │  │
+│  │  - React UI for destination selection                 │  │
+│  │  - Search and browse Notion pages/databases          │  │
+│  │  - Property form for database entries                │  │
+│  └───────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────┘
+                          │
+                          │ HTTP (REST API)
+                          ▼
+┌─────────────────────────────────────────────────────────────┐
+│              Express.js Server (server.ts)                   │
+│  ┌──────────────────────────────────────────────────────┐  │
+│  │  Routes:                                              │  │
+│  │  - POST /search          - Search Notion            │  │
+│  │  - GET  /children/:id    - Get child pages          │  │
+│  │  - GET  /data-sources/:id - Get data sources        │  │
+│  │  - POST /create-page     - Create new page          │  │
+│  │  - PATCH /save           - Save content to page     │  │
+│  │  - POST /save-with-comment - Save + comment         │  │
+│  │  - POST /comment          - Add comment to block     │  │
+│  └──────────────┬───────────────────────────────────────┘  │
+│                 │ @notionhq/client                           │
+└─────────────────┼───────────────────────────────────────────┘
+                  │
+                  ▼
+         ┌─────────────────┐
+         │   Notion API    │
+         └─────────────────┘
+```
+
+## Components
+
+### 1. Chrome Extension (Frontend)
+
+The extension is built with **React**, **TypeScript**, and **Vite**, and consists of three main parts:
+
+#### Content Script (`content.ts`)
+- **Purpose**: Injected into every webpage to detect user interactions
+- **Key Features**:
+  - Monitors text selection events (`mouseup`, `selectionchange`)
+  - Displays tooltip with "Save" and "Comment" buttons when text is selected
+  - Handles PDF pages with special logic (clipboard-based selection)
+  - Highlights selected text with optimistic UI updates
+  - Manages image hover detection for saving images
+- **Communication**: Sends messages to service worker via `chrome.runtime.sendMessage()`
+
+#### Service Worker (`sw.ts`)
+- **Purpose**: Background script that handles extension logic and API communication
+- **Key Features**:
+  - Routes messages from content script to appropriate handlers
+  - Makes HTTP requests to the Express.js backend
+  - Manages Chrome storage for destination persistence
+  - Handles extension lifecycle (opens side panel on icon click)
+  - Implements retry logic and timeout handling
+
+#### Side Panel (`popup/App.tsx`)
+- **Purpose**: React-based UI for managing Notion destinations
+- **Key Features**:
+  - Search interface for finding Notion pages, databases, and data sources
+  - Nested hierarchy display (page → database → data source)
+  - Destination selection and persistence
+  - Property form for database entries (supports text, number, select, date, url types)
+  - Create child pages directly from the UI
+
+### 2. Express.js Server (Backend)
+
+Built with **Express.js** and **TypeScript**, the server acts as a proxy between the extension and Notion API.
+
+#### API Routes
+
+- **`POST /search`** - Searches Notion for pages and data sources matching a query
+- **`GET /children/:pageId`** - Retrieves child pages of a given page
+- **`GET /data-sources/:databaseId`** - Retrieves data sources connected to a database
+- **`GET /data-source/:dataSourceId`** - Gets details of a specific data source
+- **`POST /create-page`** - Creates a new Notion page with optional properties
+- **`PATCH /save`** - Appends content (text as quote blocks + images) to a Notion page
+- **`POST /save-with-comment`** - Combined endpoint that saves content and adds a comment in one request
+- **`POST /comment`** - Adds a comment to a specific block
+
+#### Services
+
+- **`notionClient.ts`** - Initializes and exports the Notion API client
+- **`imageUpload.ts`** - Handles image uploads to Notion (converts images to base64 and creates image blocks)
+
+### 3. Data Flow
+
+#### Saving Text Highlight
+
+1. User selects text on a webpage
+2. Content script detects selection and shows tooltip
+3. User clicks "Save" button
+4. Content script sends `SAVE_HIGHLIGHT` message to service worker
+5. Service worker calls `PATCH /save` endpoint with page ID and content
+6. Server creates quote block in Notion page
+7. Response flows back through the chain
+8. Optimistic UI update shows success immediately
+
+#### Adding Comment
+
+1. User selects text and clicks "Comment"
+2. Content script shows comment input box
+3. User enters comment and submits
+4. Content script sends `COMMENT_HIGHLIGHT` message
+5. Service worker calls `POST /save-with-comment` (or separate `/save` + `/comment` calls)
+6. Server saves content and adds comment thread
+7. Success feedback shown to user
+
+#### Selecting Destination
+
+1. User opens side panel
+2. User searches for Notion page/database
+3. Frontend calls `POST /search` endpoint
+4. Server queries Notion API and returns results
+5. User selects a destination
+6. Destination saved to `chrome.storage.local`
+7. Content script listens for storage changes and updates UI visibility
+
+## Tech Stack
+
+### Frontend
+- **React 19** - UI framework
+- **TypeScript** - Type safety
+- **Vite** - Build tool and dev server
+- **Tailwind CSS v4** - Styling
+- **Chrome Extension APIs** - `chrome.storage`, `chrome.runtime`, `chrome.sidePanel`
+
+### Backend
+- **Express.js** - Web framework
+- **TypeScript** - Type safety
+- **@notionhq/client** - Official Notion API client
+- **CORS** - Cross-origin resource sharing
+- **dotenv** - Environment variable management
+
+## Key Design Decisions
+
+### 1. Optimistic UI Updates
+The extension shows success feedback immediately while processing in the background, improving perceived performance.
+
+### 2. Combined Save + Comment Endpoint
+The `/save-with-comment` endpoint reduces API calls from 2 to 1, improving speed when adding comments.
+
+### 3. PDF Support
+Special handling for PDF pages since Chrome's PDF viewer doesn't expose selections via `window.getSelection()`. Uses clipboard reading and a persistent "Save Selection" button.
+
+### 4. Shadow DOM for Tooltip
+The tooltip is injected into a Shadow DOM to avoid CSS conflicts with host pages.
+
+### 5. Extension Context Validation
+Checks if extension context is still valid to handle cases where the extension was reloaded, preventing stale content script errors.
+
+### 6. Retry Logic
+Service worker implements retry logic for API calls to handle transient network issues and service worker wake-up delays.
+
+## File Structure
+
+```
+inline/
+├── frontend/
+│   ├── src/
+│   │   ├── cs/
+│   │   │   └── content.ts          # Content script
+│   │   ├── sw/
+│   │   │   └── sw.ts              # Service worker
+│   │   ├── popup/
+│   │   │   ├── App.tsx            # Main React component
+│   │   │   ├── components/       # UI components
+│   │   │   └── hooks/            # Custom React hooks
+│   │   ├── api.ts                # API client
+│   │   └── types.ts              # TypeScript types
+│   ├── public/
+│   │   └── manifest.json         # Extension manifest
+│   └── dist/                     # Built extension files
+│
+└── server/
+    ├── routes/                    # API route handlers
+    ├── services/                 # Business logic
+    │   ├── notionClient.ts
+    │   └── imageUpload.ts
+    ├── helpers/                  # Utility functions
+    └── server.ts                 # Express app entry point
+```
 
 # Under Development
 - [ ] Add a cache feature to show the latest destinations so users don't have to search all over again
