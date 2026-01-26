@@ -135,6 +135,7 @@ let tooltip: HTMLDivElement | null = null;
 let commentBox: HTMLDivElement | null = null;
 let tooltipCreatedAt: number = 0; // Timestamp when tooltip was created
 let lastSelectionText = "";
+let lastSelectionTextSetAt: number = 0; // Timestamp when lastSelectionText was set
 let savedRange: Range | null = null; // Store the range for later use
 let imageOverlay: HTMLButtonElement | null = null;
 let activeImage: HTMLImageElement | null = null;
@@ -412,10 +413,16 @@ function showCommentBox() {
 
         const comment = input.value.trim();
         if (comment) {
+            // Prefer current selection if available, otherwise use lastSelectionText
+            const currentSelectionText = getSelectionText();
+            const textToSave = (currentSelectionText && currentSelectionText.trim().length > 0)
+                ? currentSelectionText.trim()
+                : lastSelectionText;
+
             const msg: SWMessage = {
                 type: "COMMENT_HIGHLIGHT",
                 payload: {
-                    text: lastSelectionText,
+                    text: textToSave,
                     comment: comment,
                     pageUrl: location.href,
                     pageTitle: document.title,
@@ -600,10 +607,17 @@ function makeTooltip(x: number, y: number) {
 
         console.log("🔵 CONTENT: Save button clicked");
 
+        // Prefer current selection if available, otherwise use lastSelectionText
+        // This ensures we capture the most recent selection, not a stale one
+        const currentSelectionText = getSelectionText();
+        const textToSave = (currentSelectionText && currentSelectionText.trim().length > 0)
+            ? currentSelectionText.trim()
+            : lastSelectionText;
+
         const msg: SWMessage = {
             type: "SAVE_HIGHLIGHT",
             payload: {
-                text: lastSelectionText,
+                text: textToSave,
                 pageUrl: location.href,
                 pageTitle: document.title,
             },
@@ -694,6 +708,7 @@ function handleTextSelection(e: MouseEvent) {
         }
 
         lastSelectionText = text;
+        lastSelectionTextSetAt = Date.now();
         makeTooltip(e.clientX + 8, e.clientY + 8);
     }, delay);
 }
@@ -710,6 +725,7 @@ document.addEventListener("keydown", (e) => {
         const text = getSelectionText();
         if (text) {
             lastSelectionText = text;
+            lastSelectionTextSetAt = Date.now();
             // Show tooltip at center of viewport
             makeTooltip(window.innerWidth / 2, 100);
         }
@@ -732,6 +748,7 @@ function startPdfPolling() {
         if (text && text !== lastPdfSelection && text.length > 0) {
             lastPdfSelection = text;
             lastSelectionText = text;
+            lastSelectionTextSetAt = Date.now();
             console.log('[INLINE] PDF selection detected:', text.slice(0, 50) + '...');
 
             // Get selection position to show tooltip
@@ -790,6 +807,7 @@ document.addEventListener("selectionchange", () => {
     const text = getSelectionText();
     if (text && text !== lastSelectionText) {
         lastSelectionText = text;
+        lastSelectionTextSetAt = Date.now();
 
         // For PDFs, show tooltip on selection change
         if (isPdfPage() && text.length > 0) {
@@ -855,23 +873,44 @@ function createPdfButton() {
     }, true);
 
     button.onclick = async () => {
+        // First, try to get current selection (sometimes works on PDFs)
+        let text = getSelectionText();
 
-        // Try to read from clipboard first
-        try {
-            const text = await navigator.clipboard.readText();
-            if (text && text.trim().length > 0) {
-                lastSelectionText = text.trim();
-                // Small delay to ensure mousedown events have finished
-                setTimeout(() => {
-                    makeTooltip(window.innerWidth / 2, window.innerHeight / 2);
-                }, 50);
-                return;
+        // If no current selection, check if lastSelectionText was set recently (within 5 seconds)
+        // This handles cases where polling or other mechanisms detected the selection
+        if (!text || text.trim().length === 0) {
+            const now = Date.now();
+            const timeSinceLastSelection = now - lastSelectionTextSetAt;
+            const isRecentSelection = lastSelectionText && lastSelectionText.length > 0 && timeSinceLastSelection < 5000;
+            if (isRecentSelection) {
+                text = lastSelectionText;
             }
-        } catch (e) {
-            // Clipboard access denied or empty
         }
 
-        // If clipboard fails, show instructions
+        // If still no text, try to read from clipboard
+        if (!text || text.trim().length === 0) {
+            try {
+                const clipboardText = await navigator.clipboard.readText();
+                if (clipboardText && clipboardText.trim().length > 0) {
+                    text = clipboardText.trim();
+                }
+            } catch (e) {
+                // Clipboard access denied or empty
+            }
+        }
+
+        // If we have text, use it
+        if (text && text.trim().length > 0) {
+            lastSelectionText = text.trim();
+            lastSelectionTextSetAt = Date.now();
+            // Small delay to ensure mousedown events have finished
+            setTimeout(() => {
+                makeTooltip(window.innerWidth / 2, window.innerHeight / 2);
+            }, 50);
+            return;
+        }
+
+        // If no text found, show instructions
         alert("To save text from PDF:\n1. Select the text you want to save\n2. Copy it (Ctrl+C / Cmd+C)\n3. Click this button again\n\nOr use keyboard shortcut: Ctrl+Shift+S (Cmd+Shift+S on Mac)");
     };
 
