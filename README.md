@@ -2,6 +2,7 @@
   <img src="https://github.com/user-attachments/assets/feae16ca-ffc4-4666-950a-ead7e49cc1e4" width="600" alt="image_icon">
 </div>
 <br />
+
 ## Table of Contents
 
 - [Demo](#demo)
@@ -10,11 +11,6 @@
   - [Prerequisites](#prerequisites)
   - [Getting Your Notion API Key](#getting-your-notion-api-key)
   - [Installation Steps](#installation-steps)
-    - [1. Clone the Repository](#1-clone-the-repository)
-    - [2. Set Up the Server](#2-set-up-the-server)
-    - [3. Set Up the Frontend (Chrome Extension)](#3-set-up-the-frontend-chrome-extension)
-    - [4. Load the Extension in Chrome](#4-load-the-extension-in-chrome)
-    - [5. Verify the Setup](#5-verify-the-setup)
   - [Development](#development)
 - [Architecture](#architecture)
   - [Overview](#overview)
