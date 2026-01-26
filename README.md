@@ -38,6 +38,8 @@ I was thinking about how I can automate this process so that my online reading e
 
 # Setup
 
+**Estimated Time Spent**: ~15-20 mins
+
 ## Prerequisites
 
 Before you begin, ensure you have the following installed:
