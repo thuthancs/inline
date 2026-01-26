@@ -2,13 +2,30 @@
   <img src="https://github.com/user-attachments/assets/feae16ca-ffc4-4666-950a-ead7e49cc1e4" width="600" alt="image_icon">
 </div>
 <br />
-<p align="center">
-  <a href="#demo">Demo</a> &nbsp;•&nbsp;
-  <a href="#why-inline">Why inline?</a> &nbsp;•&nbsp;
-  <a href="#ux-flow">UX Flow</a> &nbsp;•&nbsp;
-  <a href="#architecture">Architecture</a> &nbsp;•&nbsp;
-  <a href="#roadmap">Roadmap</a>
-</p>
+## Table of Contents
+
+- [Demo](#demo)
+- [Why inline?](#why-inline)
+- [Setup](#setup)
+  - [Prerequisites](#prerequisites)
+  - [Getting Your Notion API Key](#getting-your-notion-api-key)
+  - [Installation Steps](#installation-steps)
+    - [1. Clone the Repository](#1-clone-the-repository)
+    - [2. Set Up the Server](#2-set-up-the-server)
+    - [3. Set Up the Frontend (Chrome Extension)](#3-set-up-the-frontend-chrome-extension)
+    - [4. Load the Extension in Chrome](#4-load-the-extension-in-chrome)
+    - [5. Verify the Setup](#5-verify-the-setup)
+  - [Development](#development)
+- [Architecture](#architecture)
+  - [Overview](#overview)
+  - [Components](#components)
+    - [1. Chrome Extension (Frontend)](#1-chrome-extension-frontend)
+    - [2. Express.js Server (Backend)](#2-expressjs-server-backend)
+    - [3. Data Flow](#3-data-flow)
+  - [Tech Stack](#tech-stack)
+  - [Key Design Decisions](#key-design-decisions)
+  - [File Structure](#file-structure)
+- [Under Development](#under-development)
 
 
 
