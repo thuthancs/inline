@@ -142,29 +142,6 @@ cd inline
 3. Try searching for a Notion page or database
 4. If everything is set up correctly, you should see your Notion pages/databases in the search results
 
-## Troubleshooting
-
-### Server won't start
-- Check that the `NOTION_KEY` is correctly set in the `.env` file
-- Verify the port isn't already in use by another application
-- Check the server logs for error messages
-
-### Extension can't connect to server
-- Ensure the server is running on the correct port
-- Check that the `API_BASE` URL in `frontend/src/api.ts` matches your server URL
-- Verify Chrome's host permissions allow `http://localhost:*/*` (already configured in `manifest.json`)
-- Try rebuilding the extension after changing the API URL
-
-### Notion API errors
-- Verify your Notion API key is correct
-- Ensure you've shared the pages/databases with your integration (see "Getting Your Notion API Key" above)
-- Check that your integration has the necessary permissions in Notion
-
-### Extension not appearing
-- Make sure you loaded the `frontend/dist` folder (not `frontend` or `frontend/src`)
-- Check that the build completed successfully
-- Try reloading the extension in `chrome://extensions/`
-
 ## Development
 
 For development with hot-reload:
@@ -172,12 +149,6 @@ For development with hot-reload:
 **Server:**
 ```bash
 cd server
-npm run dev
-```
-
-**Frontend:**
-```bash
-cd frontend
 npm run dev
 ```
 
