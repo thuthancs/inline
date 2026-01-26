@@ -270,9 +270,17 @@ function ensureImageOverlay() {
         e.preventDefault();
         e.stopPropagation();
 
-        if (!activeImage) return;
+        if (!imageOverlay || !activeImage) return;
         const src = activeImage.currentSrc || activeImage.src;
         if (!src) return;
+
+        // OPTIMISTIC UI: Change button to green with checkmark immediately
+        const originalText = imageOverlay.textContent;
+        const originalBackground = imageOverlay.style.background;
+        imageOverlay.textContent = '✓ Saved';
+        imageOverlay.style.background = '#4caf50';
+        imageOverlay.style.cursor = 'default';
+        imageOverlay.disabled = true;
 
         const msg: SWMessage = {
             type: "SAVE_IMAGE",
@@ -284,13 +292,30 @@ function ensureImageOverlay() {
         };
 
         sendMessageWithRetry(msg, (resp) => {
+            if (!imageOverlay) return;
+
             if (chrome.runtime.lastError) {
+                // Revert button on error
+                imageOverlay.textContent = originalText;
+                imageOverlay.style.background = originalBackground;
+                imageOverlay.style.cursor = 'pointer';
+                imageOverlay.disabled = false;
                 showToast(`Save failed: ${chrome.runtime.lastError.message}`, 'error');
                 return;
             }
             if (resp?.ok) {
-                showToast('Image saved to Notion', 'success');
+                // Keep green checkmark on success
+                showToast('Image saved to Notion ✓', 'success');
+                // Hide button after a short delay
+                setTimeout(() => {
+                    hideImageOverlay();
+                }, 1500);
             } else {
+                // Revert button on error
+                imageOverlay.textContent = originalText;
+                imageOverlay.style.background = originalBackground;
+                imageOverlay.style.cursor = 'pointer';
+                imageOverlay.disabled = false;
                 showToast(`Save failed: ${resp?.error || 'unknown'}`, 'error');
             }
         });
@@ -315,6 +340,12 @@ function showImageOverlay(img: HTMLImageElement) {
     activeImage = img;
     const rect = img.getBoundingClientRect();
 
+    // Reset button state when showing for a new image
+    imageOverlay.textContent = 'Save image';
+    imageOverlay.style.background = '#0066cc';
+    imageOverlay.style.cursor = 'pointer';
+    imageOverlay.disabled = false;
+
     imageOverlay.style.left = `${Math.min(rect.right - 90, window.innerWidth - 110)}px`;
     imageOverlay.style.top = `${Math.max(rect.top + 6, 8)}px`;
     imageOverlay.style.display = 'block';
@@ -324,6 +355,12 @@ function hideImageOverlay() {
     if (!imageOverlay) return;
     imageOverlay.style.display = 'none';
     activeImage = null;
+
+    // Reset button state when hiding
+    imageOverlay.textContent = 'Save image';
+    imageOverlay.style.background = '#0066cc';
+    imageOverlay.style.cursor = 'pointer';
+    imageOverlay.disabled = false;
 }
 
 function getSelectionText(): string {
