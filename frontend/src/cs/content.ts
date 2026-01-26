@@ -37,14 +37,6 @@ async function checkDestination() {
     try {
         const store = await chrome.storage.local.get(DEST_KEY);
         hasDestination = !!store[DEST_KEY];
-        // Update PDF button after a delay to ensure function is defined
-        if (isPdfPage()) {
-            setTimeout(() => {
-                if (typeof updatePdfButton === 'function') {
-                    updatePdfButton();
-                }
-            }, 100);
-        }
     } catch (e) {
         hasDestination = false;
     }
@@ -57,10 +49,6 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
         // If destination was cleared, remove any visible tooltip
         if (!hasDestination) {
             removeTooltip();
-        }
-        // Update PDF button if on PDF page
-        if (isPdfPage() && typeof updatePdfButton === 'function') {
-            updatePdfButton();
         }
     }
 });
@@ -135,7 +123,6 @@ let tooltip: HTMLDivElement | null = null;
 let commentBox: HTMLDivElement | null = null;
 let tooltipCreatedAt: number = 0; // Timestamp when tooltip was created
 let lastSelectionText = "";
-let lastSelectionTextSetAt: number = 0; // Timestamp when lastSelectionText was set
 let savedRange: Range | null = null; // Store the range for later use
 let imageOverlay: HTMLButtonElement | null = null;
 let activeImage: HTMLImageElement | null = null;
@@ -720,13 +707,6 @@ function makeTooltip(x: number, y: number) {
 
 }
 
-// Check if we're on a PDF page
-function isPdfPage(): boolean {
-    return document.contentType === 'application/pdf' ||
-        window.location.pathname.toLowerCase().endsWith('.pdf') ||
-        document.querySelector('embed[type="application/pdf"]') !== null;
-}
-
 // Handle text selection
 function handleTextSelection(e: MouseEvent) {
     // Only show UI if a destination is set
@@ -734,26 +714,19 @@ function handleTextSelection(e: MouseEvent) {
 
     if (shadowHost && e.target instanceof Node && shadowHost.contains(e.target)) return;
 
-    // For PDFs, add a small delay to let the selection update
-    const delay = isPdfPage() ? 100 : 0;
+    const text = getSelectionText();
+    if (!text) {
+        removeTooltip();
+        return;
+    }
 
-    setTimeout(() => {
-        const text = getSelectionText();
-        if (!text) {
-            removeTooltip();
-            return;
-        }
-
-        lastSelectionText = text;
-        lastSelectionTextSetAt = Date.now();
-        makeTooltip(e.clientX + 8, e.clientY + 8);
-    }, delay);
+    lastSelectionText = text;
+    makeTooltip(e.clientX + 8, e.clientY + 8);
 }
 
-// Use capture phase to catch events before PDF viewer handles them
 document.addEventListener("mouseup", handleTextSelection, true);
 
-// Keyboard shortcut: Ctrl/Cmd + Shift + S to save selection (works everywhere including PDFs)
+// Keyboard shortcut: Ctrl/Cmd + Shift + S to save selection
 document.addEventListener("keydown", (e) => {
     if (!hasDestination) return;
 
@@ -762,80 +735,11 @@ document.addEventListener("keydown", (e) => {
         const text = getSelectionText();
         if (text) {
             lastSelectionText = text;
-            lastSelectionTextSetAt = Date.now();
             // Show tooltip at center of viewport
             makeTooltip(window.innerWidth / 2, 100);
         }
     }
 }, true);
-
-// For PDFs: poll for selection changes since events might not bubble
-let pdfPollInterval: ReturnType<typeof setInterval> | null = null;
-let lastPdfSelection = "";
-let pdfSelectionTimeout: ReturnType<typeof setTimeout> | null = null;
-
-function startPdfPolling() {
-    if (pdfPollInterval) return;
-
-    console.log('[INLINE] Starting PDF selection polling');
-    pdfPollInterval = setInterval(() => {
-        if (!hasDestination) return;
-
-        const text = getSelectionText();
-        if (text && text !== lastPdfSelection && text.length > 0) {
-            lastPdfSelection = text;
-            lastSelectionText = text;
-            lastSelectionTextSetAt = Date.now();
-            console.log('[INLINE] PDF selection detected:', text.slice(0, 50) + '...');
-
-            // Get selection position to show tooltip
-            const selection = window.getSelection();
-            if (selection && selection.rangeCount > 0) {
-                const range = selection.getRangeAt(0);
-                const rect = range.getBoundingClientRect();
-
-                // Clear any existing timeout
-                if (pdfSelectionTimeout) {
-                    clearTimeout(pdfSelectionTimeout);
-                }
-
-                // Show tooltip after a short delay (to avoid flickering)
-                pdfSelectionTimeout = setTimeout(() => {
-                    // Check selection is still there
-                    const currentText = getSelectionText();
-                    if (currentText === text) {
-                        const tooltipX = rect.left + rect.width / 2;
-                        const tooltipY = rect.top - 10;
-                        makeTooltip(tooltipX, tooltipY);
-                    }
-                }, 300);
-            }
-        } else if (!text && lastPdfSelection) {
-            // Selection cleared
-            lastPdfSelection = "";
-            if (pdfSelectionTimeout) {
-                clearTimeout(pdfSelectionTimeout);
-                pdfSelectionTimeout = null;
-            }
-        }
-    }, 200);
-}
-
-// Start PDF polling after a delay to let the page load
-const isPdf = isPdfPage();
-if (isPdf) {
-    console.log('[INLINE] PDF page detected on load');
-    startPdfPolling();
-} else {
-    // Check again after page loads (PDF might load dynamically)
-    window.addEventListener('load', () => {
-        const isPdfAfterLoad = isPdfPage();
-        if (isPdfAfterLoad) {
-            console.log('[INLINE] PDF detected after page load');
-            startPdfPolling();
-        }
-    });
-}
 
 // Also use selectionchange event as backup
 document.addEventListener("selectionchange", () => {
@@ -844,155 +748,12 @@ document.addEventListener("selectionchange", () => {
     const text = getSelectionText();
     if (text && text !== lastSelectionText) {
         lastSelectionText = text;
-        lastSelectionTextSetAt = Date.now();
-
-        // For PDFs, show tooltip on selection change
-        if (isPdfPage() && text.length > 0) {
-            const selection = window.getSelection();
-            if (selection && selection.rangeCount > 0) {
-                const range = selection.getRangeAt(0);
-                const rect = range.getBoundingClientRect();
-                setTimeout(() => {
-                    const currentText = getSelectionText();
-                    if (currentText === text) {
-                        makeTooltip(rect.left + rect.width / 2, rect.top - 10);
-                    }
-                }, 100);
-            }
-        }
     }
 });
-
-// For PDFs: Show a persistent floating button since selections aren't detectable
-let pdfButtonHost: HTMLElement | null = null;
-
-function createPdfButton() {
-    if (pdfButtonHost) return; // Already exists
-
-    pdfButtonHost = document.createElement("div");
-    pdfButtonHost.style.position = "fixed";
-    pdfButtonHost.style.bottom = "20px";
-    pdfButtonHost.style.right = "20px";
-    pdfButtonHost.style.zIndex = "999998";
-    pdfButtonHost.style.fontFamily = "system-ui";
-
-    const shadow = pdfButtonHost.attachShadow({ mode: "open" });
-
-    const style = document.createElement("style");
-    style.textContent = `
-        .pdf-button {
-            background: #2563eb;
-            color: white;
-            border: none;
-            border-radius: 8px;
-            padding: 10px 16px;
-            font-size: 14px;
-            font-weight: 500;
-            cursor: pointer;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-            transition: background 0.2s;
-        }
-        .pdf-button:hover {
-            background: #1d4ed8;
-        }
-        .pdf-button:active {
-            background: #1e40af;
-        }
-    `;
-
-    const button = document.createElement("button");
-    button.className = "pdf-button";
-    button.textContent = "Save Selection";
-
-    // Prevent mousedown from removing tooltip
-    button.addEventListener("mousedown", (e) => {
-        e.stopPropagation();
-    }, true);
-
-    button.onclick = async () => {
-        // First, try to get current selection (sometimes works on PDFs)
-        let text = getSelectionText();
-
-        // If no current selection, check if lastSelectionText was set recently (within 5 seconds)
-        // This handles cases where polling or other mechanisms detected the selection
-        if (!text || text.trim().length === 0) {
-            const now = Date.now();
-            const timeSinceLastSelection = now - lastSelectionTextSetAt;
-            const isRecentSelection = lastSelectionText && lastSelectionText.length > 0 && timeSinceLastSelection < 5000;
-            if (isRecentSelection) {
-                text = lastSelectionText;
-            }
-        }
-
-        // If still no text, try to read from clipboard
-        if (!text || text.trim().length === 0) {
-            try {
-                const clipboardText = await navigator.clipboard.readText();
-                if (clipboardText && clipboardText.trim().length > 0) {
-                    text = clipboardText.trim();
-                }
-            } catch (e) {
-                // Clipboard access denied or empty
-            }
-        }
-
-        // If we have text, use it
-        if (text && text.trim().length > 0) {
-            lastSelectionText = text.trim();
-            lastSelectionTextSetAt = Date.now();
-            // Small delay to ensure mousedown events have finished
-            setTimeout(() => {
-                makeTooltip(window.innerWidth / 2, window.innerHeight / 2);
-            }, 50);
-            return;
-        }
-
-        // If no text found, show instructions
-        alert("To save text from PDF:\n1. Select the text you want to save\n2. Copy it (Ctrl+C / Cmd+C)\n3. Click this button again\n\nOr use keyboard shortcut: Ctrl+Shift+S (Cmd+Shift+S on Mac)");
-    };
-
-    shadow.appendChild(style);
-    shadow.appendChild(button);
-    document.body.appendChild(pdfButtonHost);
-}
-
-function removePdfButton() {
-    if (pdfButtonHost) {
-        pdfButtonHost.remove();
-        pdfButtonHost = null;
-    }
-}
-
-// Show/hide PDF button based on destination
-function updatePdfButton() {
-    if (isPdfPage()) {
-        if (hasDestination) {
-            createPdfButton();
-        } else {
-            removePdfButton();
-        }
-    }
-}
-
-// Initialize PDF button if on PDF page
-if (isPdfPage()) {
-    updatePdfButton();
-
-    // Update button when destination changes
-    chrome.storage.onChanged.addListener((changes, areaName) => {
-        if (areaName === 'local' && changes[DEST_KEY]) {
-            hasDestination = !!changes[DEST_KEY].newValue;
-            updatePdfButton();
-        }
-    });
-}
 
 document.addEventListener("mousedown", (e) => {
     // Don't remove tooltip if clicking on tooltip itself
     if (shadowHost && e.target instanceof Node && shadowHost.contains(e.target)) return;
-
-    // Don't remove tooltip if clicking on PDF button
-    if (pdfButtonHost && e.target instanceof Node && pdfButtonHost.contains(e.target)) return;
 
     removeTooltip();
 }, true);

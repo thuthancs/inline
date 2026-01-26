@@ -187,7 +187,6 @@ Inline is a Chrome extension that enables seamless saving of web content to Noti
 │  │  Content Script (content.ts)                         │   │
 │  │  - Detects text selection                            │   │
 │  │  - Shows tooltip with Save/Comment buttons           │   │
-│  │  - Handles PDF pages with special logic              │   │
 │  └──────────────┬───────────────────────────────────────┘   │
 │                 │ chrome.runtime.sendMessage                │
 │  ┌──────────────▼───────────────────────────────────────┐   │
@@ -239,7 +238,6 @@ The extension is built with **React**, **TypeScript**, and **Vite**, and consist
 - **Key Features**:
   - Monitors text selection events (`mouseup`, `selectionchange`)
   - Displays tooltip with "Save" and "Comment" buttons when text is selected
-  - Handles PDF pages with special logic (clipboard-based selection)
   - Highlights selected text with optimistic UI updates
   - Manages image hover detection for saving images
 - **Communication**: Sends messages to service worker via `chrome.runtime.sendMessage()`
@@ -339,16 +337,13 @@ The extension shows success feedback immediately while processing in the backgro
 ### 2. Combined Save + Comment Endpoint
 The `/save-with-comment` endpoint reduces API calls from 2 to 1, improving speed when adding comments.
 
-### 3. PDF Support
-Special handling for PDF pages since Chrome's PDF viewer doesn't expose selections via `window.getSelection()`. Uses clipboard reading and a persistent "Save Selection" button.
-
-### 4. Shadow DOM for Tooltip
+### 3. Shadow DOM for Tooltip
 The tooltip is injected into a Shadow DOM to avoid CSS conflicts with host pages.
 
-### 5. Extension Context Validation
+### 4. Extension Context Validation
 Checks if extension context is still valid to handle cases where the extension was reloaded, preventing stale content script errors.
 
-### 6. Retry Logic
+### 5. Retry Logic
 Service worker implements retry logic for API calls to handle transient network issues and service worker wake-up delays.
 
 ## File Structure
