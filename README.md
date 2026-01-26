@@ -167,44 +167,44 @@ Inline is a Chrome extension that enables seamless saving of web content to Noti
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    Chrome Browser                            │
-│  ┌──────────────────────────────────────────────────────┐  │
-│  │  Content Script (content.ts)                         │  │
-│  │  - Detects text selection                            │  │
-│  │  - Shows tooltip with Save/Comment buttons           │  │
-│  │  - Handles PDF pages with special logic              │  │
-│  └──────────────┬───────────────────────────────────────┘  │
-│                 │ chrome.runtime.sendMessage                 │
-│  ┌──────────────▼───────────────────────────────────────┐  │
-│  │  Service Worker (sw.ts)                               │  │
-│  │  - Message routing                                    │  │
-│  │  - API calls to backend                               │  │
-│  │  - Storage management                                  │  │
-│  └──────────────┬───────────────────────────────────────┘  │
-│                 │ HTTP requests                              │
-│  ┌──────────────▼───────────────────────────────────────┐  │
-│  │  Side Panel (popup/App.tsx)                           │  │
-│  │  - React UI for destination selection                 │  │
-│  │  - Search and browse Notion pages/databases          │  │
-│  │  - Property form for database entries                │  │
+│                    Chrome Browser                           │
+│  ┌──────────────────────────────────────────────────────┐   │
+│  │  Content Script (content.ts)                         │   │
+│  │  - Detects text selection                            │   │
+│  │  - Shows tooltip with Save/Comment buttons           │   │
+│  │  - Handles PDF pages with special logic              │   │
+│  └──────────────┬───────────────────────────────────────┘   │
+│                 │ chrome.runtime.sendMessage                │
+│  ┌──────────────▼───────────────────────────────────────┐   │
+│  │  Service Worker (sw.ts)                              │   │
+│  │  - Message routing                                   │   │
+│  │  - API calls to backend                              │   │
+│  │  - Storage management                                │   │
+│  └──────────────┬───────────────────────────────────────┘   │
+│                 │ HTTP requests                             │
+│  ┌──────────────▼───────────────────────────────────────┐   │
+│  │  Side Panel (popup/App.tsx)                          │   │
+│  │  - React UI for destination selection                │   │
+│  │  - Search and browse Notion pages/databases          │   │
+│  │  - Property form for database entries                │   │
 │  └───────────────────────────────────────────────────────┘  │
 └─────────────────────────────────────────────────────────────┘
                           │
                           │ HTTP (REST API)
                           ▼
 ┌─────────────────────────────────────────────────────────────┐
-│              Express.js Server (server.ts)                   │
-│  ┌──────────────────────────────────────────────────────┐  │
-│  │  Routes:                                              │  │
-│  │  - POST /search          - Search Notion            │  │
-│  │  - GET  /children/:id    - Get child pages          │  │
-│  │  - GET  /data-sources/:id - Get data sources        │  │
-│  │  - POST /create-page     - Create new page          │  │
-│  │  - PATCH /save           - Save content to page     │  │
-│  │  - POST /save-with-comment - Save + comment         │  │
-│  │  - POST /comment          - Add comment to block     │  │
-│  └──────────────┬───────────────────────────────────────┘  │
-│                 │ @notionhq/client                           │
+│              Express.js Server (server.ts)                  │
+│  ┌──────────────────────────────────────────────────────┐   │
+│  │  Routes:                                             │   │
+│  │  - POST /search          - Search Notion             │   │
+│  │  - GET  /children/:id    - Get child pages           │   │
+│  │  - GET  /data-sources/:id - Get data sources         │   │
+│  │  - POST /create-page     - Create new page           │   │
+│  │  - PATCH /save           - Save content to page      │   │
+│  │  - POST /save-with-comment - Save + comment          │   │
+│  │  - POST /comment          - Add comment to block     │   │
+│  └──────────────┬───────────────────────────────────────┘   │
+│                 │ @notionhq/client                          │
 └─────────────────┼───────────────────────────────────────────┘
                   │
                   ▼
