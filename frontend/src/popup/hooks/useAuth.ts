@@ -47,8 +47,11 @@ export function useAuth() {
 
     async function connectNotion() {
         try {
-            // Use Chrome's identity API for OAuth flow
-            const authUrl = `${API_BASE}/auth/notion`;
+            // Get the Chrome extension's redirect URL
+            const chromeRedirectUrl = chrome.identity.getRedirectURL();
+            
+            // Build auth URL with the Chrome redirect URL as a parameter
+            const authUrl = `${API_BASE}/auth/notion?chrome_redirect=${encodeURIComponent(chromeRedirectUrl)}`;
             
             const redirectUrl = await chrome.identity.launchWebAuthFlow({
                 url: authUrl,

@@ -28,6 +28,8 @@ router.get("/notion", (req, res) => {
     }
 
     const state = crypto.randomUUID();
+    const chromeRedirect = req.query.chrome_redirect as string | undefined;
+
     const authUrl = new URL("https://api.notion.com/v1/oauth/authorize");
     authUrl.searchParams.set("client_id", NOTION_CLIENT_ID);
     authUrl.searchParams.set("redirect_uri", REDIRECT_URI);
@@ -35,13 +37,20 @@ router.get("/notion", (req, res) => {
     authUrl.searchParams.set("owner", "user");
     authUrl.searchParams.set("state", state);
 
-    // Store state in session/cookie for verification
-    res.cookie("oauth_state", state, {
+    // Store state and chrome redirect URL in cookies for verification
+    // Using sameSite: "none" because OAuth involves cross-origin redirects
+    const cookieOptions = {
         httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
+        secure: true, // Required for sameSite: "none"
+        sameSite: "none" as const,
         maxAge: 600000, // 10 minutes
-    });
+    };
+
+    res.cookie("oauth_state", state, cookieOptions);
+
+    if (chromeRedirect) {
+        res.cookie("chrome_redirect", chromeRedirect, cookieOptions);
+    }
 
     res.redirect(authUrl.toString());
 });
@@ -104,13 +113,24 @@ router.get("/callback", async (req, res) => {
             userId: tokenData.owner?.user?.id || null,
         });
 
-        // Clear OAuth state cookie
-        res.clearCookie("oauth_state");
+        // Get chrome redirect URL from cookie
+        const chromeRedirect = req.cookies?.chrome_redirect;
 
-        // Redirect to success page with session ID
-        const successUrl = new URL(`${REDIRECT_URI.replace("/auth/callback", "")}/auth/success`);
-        successUrl.searchParams.set("session", sessionId);
-        res.redirect(successUrl.toString());
+        // Clear cookies
+        res.clearCookie("oauth_state");
+        res.clearCookie("chrome_redirect");
+
+        // Redirect to Chrome extension's redirect URL or fallback to success page
+        if (chromeRedirect) {
+            const redirectUrl = new URL(chromeRedirect);
+            redirectUrl.searchParams.set("session", sessionId);
+            res.redirect(redirectUrl.toString());
+        } else {
+            // Fallback for non-extension OAuth (e.g., testing)
+            const successUrl = new URL(`${REDIRECT_URI.replace("/auth/callback", "")}/auth/success`);
+            successUrl.searchParams.set("session", sessionId);
+            res.redirect(successUrl.toString());
+        }
     } catch (error: any) {
         console.error("OAuth callback error:", error);
         res.status(500).json({
