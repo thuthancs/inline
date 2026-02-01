@@ -1,7 +1,7 @@
 {
     "manifest_version": 3,
     "name": "Inline",
-    "version": "0.0.1",
+    "version": "0.1.0",
     "description": "Save highlights and add comments to text from any webpage to Notion",
     "icons": {
         "128": "icons/icon128.png"
@@ -20,11 +20,12 @@
         "storage",
         "activeTab",
         "tabs",
-        "sidePanel"
+        "sidePanel",
+        "identity"
     ],
     "host_permissions": [
-        "http://localhost:*/*",
-        "http://127.0.0.1:*/*"
+        "https://inline-notion.vercel.app/*",
+        "https://api.notion.com/*"
     ],
     "content_scripts": [
         {

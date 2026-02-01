@@ -1,4 +1,5 @@
-import { notion, NOTION_KEY, NOTION_VERSION } from "./notionClient.js";
+import { Client } from "@notionhq/client";
+import { NOTION_VERSION } from "./notionClient.js";
 
 export async function fetchImageAsBuffer(imageUrl: string) {
     console.log("[UPLOAD] Fetching image:", imageUrl);
@@ -19,7 +20,7 @@ export async function fetchImageAsBuffer(imageUrl: string) {
     return { buffer, contentType, fileName };
 }
 
-export async function uploadImageToNotion(imageUrl: string) {
+export async function uploadImageToNotion(imageUrl: string, notion: Client, accessToken: string) {
     const { buffer, contentType, fileName } = await fetchImageAsBuffer(imageUrl);
 
     console.log("[UPLOAD] Creating file upload:", { fileName, contentType, size: buffer.length });
@@ -57,7 +58,7 @@ export async function uploadImageToNotion(imageUrl: string) {
     const uploadResp = await fetch(uploadUrl, {
         method: "POST",
         headers: {
-            "Authorization": `Bearer ${NOTION_KEY}`,
+            "Authorization": `Bearer ${accessToken}`,
             "Notion-Version": NOTION_VERSION,
         },
         body: formData,

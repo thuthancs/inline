@@ -1,12 +1,28 @@
 import { Router } from "express";
 import { uploadImageToNotion } from "../services/imageUpload.js";
-import { notion } from "../services/notionClient.js";
+import { getNotionClientFromSession, getSessionIdFromRequest } from "../services/notionClient.js";
+import { getSession } from "../services/sessions.js";
 
 const router = Router();
 
 // Append content (text + images) to a page
 router.patch("/", async (req, res) => {
     try {
+        // Get session and create Notion client
+        const sessionId = getSessionIdFromRequest(req);
+        if (!sessionId) {
+            return res.status(401).json({ error: "Missing session ID" });
+        }
+
+        const notion = await getNotionClientFromSession(sessionId);
+        if (!notion) {
+            return res.status(401).json({ error: "Invalid or expired session" });
+        }
+
+        // Get access token for image upload
+        const session = await getSession(sessionId);
+        const accessToken = session?.accessToken;
+
         const page_id = String(req.body?.page_id ?? "").trim();
         const content = String(req.body?.content ?? "").trim();
         const images = Array.isArray(req.body?.images) ? req.body.images : [];
@@ -41,7 +57,7 @@ router.patch("/", async (req, res) => {
         for (const imageUrl of images) {
             try {
                 console.log("[SAVE] Processing image:", imageUrl);
-                const uploadResult = await uploadImageToNotion(imageUrl);
+                const uploadResult = await uploadImageToNotion(imageUrl, notion, accessToken!);
 
                 if (!uploadResult?.uploadId) {
                     throw new Error("Upload complete but uploadId missing");
@@ -89,4 +105,3 @@ router.patch("/", async (req, res) => {
 });
 
 export default router;
-

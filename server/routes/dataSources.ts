@@ -1,11 +1,22 @@
 import { Router } from "express";
-import { notion } from "../services/notionClient.js";
+import { getNotionClientFromSession, getSessionIdFromRequest } from "../services/notionClient.js";
 
 const router = Router();
 
 // Get a single data source with its properties
 router.get("/data-source/:dataSourceId", async (req, res) => {
     try {
+        // Get session and create Notion client
+        const sessionId = getSessionIdFromRequest(req);
+        if (!sessionId) {
+            return res.status(401).json({ error: "Missing session ID" });
+        }
+
+        const notion = await getNotionClientFromSession(sessionId);
+        if (!notion) {
+            return res.status(401).json({ error: "Invalid or expired session" });
+        }
+
         const dataSourceId = req.params.dataSourceId;
 
         console.log("=== DATA SOURCE RETRIEVE DEBUG ===");
@@ -33,6 +44,17 @@ router.get("/data-source/:dataSourceId", async (req, res) => {
 // Get data sources for a database
 router.get("/data-sources/:databaseId", async (req, res) => {
     try {
+        // Get session and create Notion client
+        const sessionId = getSessionIdFromRequest(req);
+        if (!sessionId) {
+            return res.status(401).json({ error: "Missing session ID" });
+        }
+
+        const notion = await getNotionClientFromSession(sessionId);
+        if (!notion) {
+            return res.status(401).json({ error: "Invalid or expired session" });
+        }
+
         const databaseId = req.params.databaseId;
 
         console.log("=== DATA SOURCES DEBUG ===");
@@ -65,4 +87,3 @@ router.get("/data-sources/:databaseId", async (req, res) => {
 });
 
 export default router;
-

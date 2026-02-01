@@ -1,11 +1,22 @@
 import { Router } from "express";
-import { notion } from "../services/notionClient.js";
+import { getNotionClientFromSession, getSessionIdFromRequest } from "../services/notionClient.js";
 
 const router = Router();
 
 // Create a child page in a parent page/database/data_source
 router.post("/", async (req, res) => {
     try {
+        // Get session and create Notion client
+        const sessionId = getSessionIdFromRequest(req);
+        if (!sessionId) {
+            return res.status(401).json({ error: "Missing session ID" });
+        }
+
+        const notion = await getNotionClientFromSession(sessionId);
+        if (!notion) {
+            return res.status(401).json({ error: "Invalid or expired session" });
+        }
+
         const parent_id = String(req.body?.parent_id ?? "").trim();
         const parent_type = String(req.body?.parent_type ?? "page").trim(); // "page", "database", or "data_source"
         const title = String(req.body?.title ?? "").trim();
@@ -78,4 +89,3 @@ router.post("/", async (req, res) => {
 });
 
 export default router;
-

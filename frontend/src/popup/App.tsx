@@ -4,6 +4,7 @@ import type { Destination } from "../types";
 import { getActiveTabInfo } from "../util";
 
 // Hooks
+import { useAuth } from "./hooks/useAuth";
 import { useDestination } from "./hooks/useDestination";
 import { useSearch } from "./hooks/useSearch";
 
@@ -14,6 +15,11 @@ import { SearchBar } from "./components/SearchBar";
 import { SearchResultItem } from "./components/SearchResultItem";
 
 export default function App() {
+  // Auth state
+  const { isConnected, workspaceName, workspaceIcon, loading: authLoading, connectNotion, disconnect } = useAuth();
+  const [connectError, setConnectError] = useState<string | null>(null);
+  const [connecting, setConnecting] = useState(false);
+
   const { destination, save: saveDestination, clear: clearDestination } = useDestination();
 
   const {
@@ -43,6 +49,18 @@ export default function App() {
   const [showPropertyForm, setShowPropertyForm] = useState(false);
   const [dataSourceSchema, setDataSourceSchema] = useState<any>(null);
   const [propertyValues, setPropertyValues] = useState<{ [key: string]: any }>({});
+
+  async function handleConnect() {
+    setConnecting(true);
+    setConnectError(null);
+    try {
+      await connectNotion();
+    } catch (e: any) {
+      setConnectError(e?.message || "Failed to connect to Notion");
+    } finally {
+      setConnecting(false);
+    }
+  }
 
   async function handleSaveDirect() {
     if (!selected) return;
@@ -200,8 +218,65 @@ export default function App() {
     setStatus("Cleared destination.");
   }
 
+  // Loading state
+  if (authLoading) {
+    return (
+      <div className="w-full max-w-md p-6 font-sans flex items-center justify-center min-h-[200px]">
+        <div className="text-gray-500">Loading...</div>
+      </div>
+    );
+  }
+
+  // Not connected - show connect screen
+  if (!isConnected) {
+    return (
+      <div className="w-full max-w-md p-6 font-sans">
+        <div className="text-center">
+          <div className="mb-4">
+            <svg className="w-16 h-16 mx-auto text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+          </div>
+          <h1 className="text-xl font-semibold mb-2 text-gray-800">Welcome to Inline</h1>
+          <p className="text-gray-600 mb-6 text-sm">
+            Connect your Notion workspace to start saving highlights and comments from any webpage.
+          </p>
+          <button
+            onClick={handleConnect}
+            disabled={connecting}
+            className="w-full px-6 py-3 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+          >
+            {connecting ? "Connecting..." : "Connect to Notion"}
+          </button>
+          {connectError && (
+            <p className="mt-3 text-red-500 text-sm">{connectError}</p>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // Connected - show main UI
   return (
     <div className="w-full max-w-md p-3 font-sans">
+      {/* Workspace indicator */}
+      <div className="flex items-center justify-between mb-3 pb-2 border-b border-gray-200">
+        <div className="flex items-center gap-2">
+          {workspaceIcon && (
+            <img src={workspaceIcon} alt="" className="w-5 h-5 rounded" />
+          )}
+          <span className="text-xs text-gray-600">
+            Connected to <strong className="text-gray-800">{workspaceName || "Notion"}</strong>
+          </span>
+        </div>
+        <button
+          onClick={disconnect}
+          className="text-xs text-gray-400 hover:text-gray-600 transition-colors"
+        >
+          Disconnect
+        </button>
+      </div>
+
       <DestinationCard
         destination={destination}
         onClear={handleClearDestination}

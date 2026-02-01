@@ -1,11 +1,22 @@
 import { Router } from "express";
-import { notion } from "../services/notionClient.js";
+import { getNotionClientFromSession, getSessionIdFromRequest } from "../services/notionClient.js";
 
 const router = Router();
 
 // Add a comment to a block
 router.post("/", async (req, res) => {
     try {
+        // Get session and create Notion client
+        const sessionId = getSessionIdFromRequest(req);
+        if (!sessionId) {
+            return res.status(401).json({ error: "Missing session ID" });
+        }
+
+        const notion = await getNotionClientFromSession(sessionId);
+        if (!notion) {
+            return res.status(401).json({ error: "Invalid or expired session" });
+        }
+
         const block_id = String(req.body?.block_id ?? "").trim();
         const comment_text = String(req.body?.comment_text ?? "").trim();
 
@@ -46,4 +57,3 @@ router.post("/", async (req, res) => {
 });
 
 export default router;
-

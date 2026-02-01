@@ -1,10 +1,12 @@
 import cors from "cors";
+import cookieParser from "cookie-parser";
 import { config } from "dotenv";
 import express from "express";
 import path from "path";
 import { fileURLToPath } from "url";
 
 // Routes
+import authRouter from "./routes/auth.js";
 import childrenRouter from "./routes/children.js";
 import commentRouter from "./routes/comment.js";
 import dataSourcesRouter from "./routes/dataSources.js";
@@ -24,6 +26,7 @@ const PORT = Number(process.env.PORT ?? 3000);
 // Middleware
 app.use(cors({ origin: "*" }));
 app.use(express.json());
+app.use(cookieParser());
 
 // Serve frontend
 const CLIENT_DIR = path.join(__dirname, "..", "inline-client");
@@ -34,6 +37,7 @@ app.get("/", (_req, res) => {
 });
 
 // Mount routes
+app.use("/auth", authRouter);
 app.use("/search", searchRouter);
 app.use("/children", childrenRouter);
 app.use("/", dataSourcesRouter);  // Handles /data-source/:id and /data-sources/:id
@@ -42,6 +46,12 @@ app.use("/save", saveRouter);
 app.use("/save-with-comment", saveWithCommentRouter);
 app.use("/comment", commentRouter);
 
-app.listen(PORT, () => {
-    console.log(`Your app is listening on port ${PORT}`);
-});
+// For local development
+if (process.env.NODE_ENV !== "production") {
+    app.listen(PORT, () => {
+        console.log(`Your app is listening on port ${PORT}`);
+    });
+}
+
+// Export for Vercel serverless
+export default app;

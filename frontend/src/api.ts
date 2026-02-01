@@ -1,9 +1,40 @@
 import type { SearchItem } from "./types";
 
-export const API_BASE = "http://localhost:64707";
+// Production URL - update this after Vercel deployment
+export const API_BASE = "https://inline-notion.vercel.app";
+
+// Session storage key
+const SESSION_KEY = "inline_session_id";
 
 // Timeout for API calls (10 seconds)
 const API_TIMEOUT = 10000;
+
+/**
+ * Get session ID from chrome storage
+ */
+export async function getSessionId(): Promise<string | null> {
+    try {
+        const result = await chrome.storage.local.get(SESSION_KEY);
+        const sessionId = result[SESSION_KEY];
+        return typeof sessionId === "string" ? sessionId : null;
+    } catch {
+        return null;
+    }
+}
+
+/**
+ * Save session ID to chrome storage
+ */
+export async function setSessionId(sessionId: string): Promise<void> {
+    await chrome.storage.local.set({ [SESSION_KEY]: sessionId });
+}
+
+/**
+ * Clear session ID from chrome storage
+ */
+export async function clearSessionId(): Promise<void> {
+    await chrome.storage.local.remove(SESSION_KEY);
+}
 
 async function fetchWithTimeout(url: string, options: RequestInit): Promise<Response> {
     const controller = new AbortController();
@@ -25,6 +56,21 @@ async function fetchWithTimeout(url: string, options: RequestInit): Promise<Resp
     }
 }
 
+/**
+ * Fetch with session authentication
+ */
+async function fetchWithAuth(url: string, options: RequestInit): Promise<Response> {
+    const sessionId = await getSessionId();
+    
+    const headers = new Headers(options.headers);
+    headers.set("Content-Type", "application/json");
+    if (sessionId) {
+        headers.set("x-session-id", sessionId);
+    }
+    
+    return fetchWithTimeout(url, { ...options, headers });
+}
+
 async function readError(res: Response): Promise<string> {
     try {
         const j = await res.json();
@@ -35,10 +81,56 @@ async function readError(res: Response): Promise<string> {
     return `${res.status} ${res.statusText}`;
 }
 
+// ============ Auth API ============
+
+/**
+ * Check if user is authenticated
+ */
+export async function checkAuthStatus(): Promise<{ connected: boolean; workspaceName?: string; workspaceIcon?: string }> {
+    try {
+        const sessionId = await getSessionId();
+        if (!sessionId) return { connected: false };
+        
+        const res = await fetchWithAuth(`${API_BASE}/auth/session`, {
+            method: "GET",
+        });
+        
+        if (!res.ok) {
+            // Session invalid, clear it
+            await clearSessionId();
+            return { connected: false };
+        }
+        
+        return await res.json();
+    } catch {
+        return { connected: false };
+    }
+}
+
+/**
+ * Logout - delete session
+ */
+export async function logout(): Promise<void> {
+    try {
+        await fetchWithAuth(`${API_BASE}/auth/logout`, { method: "POST" });
+    } catch {
+        // Ignore errors during logout
+    }
+    await clearSessionId();
+}
+
+/**
+ * Get the OAuth URL to start authentication
+ */
+export function getOAuthUrl(): string {
+    return `${API_BASE}/auth/notion`;
+}
+
+// ============ Notion API ============
+
 export async function apiSearch(query: string): Promise<SearchItem[]> {
-    const res = await fetchWithTimeout(`${API_BASE}/search`, {
+    const res = await fetchWithAuth(`${API_BASE}/search`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ query }),
     });
     if (!res.ok) throw new Error(await readError(res));
@@ -52,9 +144,8 @@ export async function apiCreatePage(
     parent_type: string = "page",
     properties?: any
 ): Promise<any> {
-    const res = await fetchWithTimeout(`${API_BASE}/create-page`, {
+    const res = await fetchWithAuth(`${API_BASE}/create-page`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ parent_id, title, parent_type, properties }),
     });
     if (!res.ok) throw new Error(await readError(res));
@@ -62,9 +153,8 @@ export async function apiCreatePage(
 }
 
 export async function apiSave(page_id: string, content: string, images?: string[]): Promise<any> {
-    const res = await fetchWithTimeout(`${API_BASE}/save`, {
+    const res = await fetchWithAuth(`${API_BASE}/save`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ page_id, content, images }),
     });
     if (!res.ok) throw new Error(await readError(res));
@@ -72,9 +162,8 @@ export async function apiSave(page_id: string, content: string, images?: string[
 }
 
 export async function apiComment(block_id: string, comment_text: string): Promise<any> {
-    const res = await fetchWithTimeout(`${API_BASE}/comment`, {
+    const res = await fetchWithAuth(`${API_BASE}/comment`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ block_id, comment_text }),
     });
     if (!res.ok) throw new Error(await readError(res));
@@ -83,9 +172,8 @@ export async function apiComment(block_id: string, comment_text: string): Promis
 
 // Combined save + comment in one request (faster)
 export async function apiSaveWithComment(page_id: string, content: string, comment_text: string): Promise<any> {
-    const res = await fetchWithTimeout(`${API_BASE}/save-with-comment`, {
+    const res = await fetchWithAuth(`${API_BASE}/save-with-comment`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ page_id, content, comment_text }),
     });
     if (!res.ok) throw new Error(await readError(res));
@@ -93,9 +181,8 @@ export async function apiSaveWithComment(page_id: string, content: string, comme
 }
 
 export async function apiGetChildren(pageId: string): Promise<SearchItem[]> {
-    const res = await fetchWithTimeout(`${API_BASE}/children/${pageId}`, {
+    const res = await fetchWithAuth(`${API_BASE}/children/${pageId}`, {
         method: "GET",
-        headers: { "Content-Type": "application/json" },
     });
     if (!res.ok) throw new Error(await readError(res));
     const data = await res.json();
@@ -103,9 +190,8 @@ export async function apiGetChildren(pageId: string): Promise<SearchItem[]> {
 }
 
 export async function apiGetDataSources(databaseId: string): Promise<SearchItem[]> {
-    const res = await fetchWithTimeout(`${API_BASE}/data-sources/${databaseId}`, {
+    const res = await fetchWithAuth(`${API_BASE}/data-sources/${databaseId}`, {
         method: "GET",
-        headers: { "Content-Type": "application/json" },
     });
     if (!res.ok) throw new Error(await readError(res));
     const data = await res.json();
@@ -113,9 +199,8 @@ export async function apiGetDataSources(databaseId: string): Promise<SearchItem[
 }
 
 export async function apiGetDataSource(dataSourceId: string): Promise<any> {
-    const res = await fetchWithTimeout(`${API_BASE}/data-source/${dataSourceId}`, {
+    const res = await fetchWithAuth(`${API_BASE}/data-source/${dataSourceId}`, {
         method: "GET",
-        headers: { "Content-Type": "application/json" },
     });
     if (!res.ok) throw new Error(await readError(res));
     return await res.json();
