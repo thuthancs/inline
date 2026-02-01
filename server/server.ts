@@ -2,8 +2,6 @@ import cors from "cors";
 import cookieParser from "cookie-parser";
 import { config } from "dotenv";
 import express from "express";
-import path from "path";
-import { fileURLToPath } from "url";
 
 // Routes
 import authRouter from "./routes/auth.js";
@@ -17,23 +15,20 @@ import searchRouter from "./routes/search.js";
 
 config();
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
 const app = express();
 const PORT = Number(process.env.PORT ?? 3000);
 
 // Middleware
-app.use(cors({ origin: "*" }));
+app.use(cors({ 
+    origin: true, // Allow all origins but with credentials support
+    credentials: true 
+}));
 app.use(express.json());
 app.use(cookieParser());
 
-// Serve frontend
-const CLIENT_DIR = path.join(__dirname, "..", "inline-client");
-app.use(express.static(CLIENT_DIR));
-
+// Health check / root route
 app.get("/", (_req, res) => {
-    res.sendFile(path.join(CLIENT_DIR, "index.html"));
+    res.json({ status: "ok", message: "Inline API Server" });
 });
 
 // Mount routes
